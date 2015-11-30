@@ -19,14 +19,14 @@ bool Ntag::begin(){
 }
 
 bool Ntag::getSerialNumber(byte* sn){
-    byte data[8];
-    if(!read(0,data,8)){
+    byte data[7];
+    if(!read(0,data,7)){
         return false;
     }
     if(data[0]!=4){
         return false;
     }
-    memcpy(sn, data+1,7);
+    memcpy(sn, data+1,6);
     return true;
 }
 
