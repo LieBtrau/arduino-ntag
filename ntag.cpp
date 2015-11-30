@@ -33,19 +33,18 @@ bool Ntag::getSerialNumber(byte* sn){
 
 bool Ntag::read(byte mema, byte *p_data, byte data_size)
 {
-    bool bRetVal=true;
     if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(USERDATA, mema)){
         return false;
     }
     HWire.beginTransmission(_i2c_address);
     if(HWire.requestFrom(_i2c_address,data_size)!=data_size){
-        bRetVal=false;
+	return false;
     }
     for (int i=0; i<data_size && HWire.available(); i++)
     {
         p_data[i] = HWire.read();
     }
-    return end_transmission() && bRetVal;
+    return true;
 }
 
 byte Ntag::write(byte mema, byte *p_data, byte data_size)
@@ -77,14 +76,14 @@ bool Ntag::read_register(byte regAddr, byte& value)
         bRetVal=false;
     }
     if(!HWire.endTransmission()){
-        bRetVal=false;
+	return false;
     }
     HWire.beginTransmission(_i2c_address);
     if(HWire.requestFrom(_i2c_address,(byte)1)!=1){
-        bRetVal=false;
+	return false;
     }
     value=HWire.read();
-    return end_transmission() && bRetVal;
+    return bRetVal;
 }
 
 bool Ntag::write_register(byte regAddr, byte mask, byte regdat)
