@@ -26,7 +26,7 @@ bool Ntag::getSerialNumber(byte* sn){
     if(data[0]!=4){
         return false;
     }
-    memcpy(sn, data+1,6);
+    memcpy(sn, data,7);
     return true;
 }
 
