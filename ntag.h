@@ -10,18 +10,31 @@ public:
         NTAG_I2C_1K,
         NTAG_I2C_2K
     }DEVICE_TYPE;
+    typedef enum{
+        NC_REG,
+        LAST_NDEF_BLOCK,
+        SRAM_MIRROR_BLOCK,
+        WDT_LS,
+        WDT_MS,
+        I2C_CLOCK_STR,
+        REG_LOCK
+    }REGISTER_NR;
     Ntag(DEVICE_TYPE dt);
     Ntag(DEVICE_TYPE dt, byte i2c_address);
+    void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getSerialNumber(byte* sn);
-    bool read(byte mema, byte *p_data, byte data_size);
-    byte write(byte mema, byte *p_data, byte data_size);
-    bool read_register(byte regAddr, byte &value);
-    bool write_register(byte regAddr, byte mask, byte regdat);
+    bool read(byte memBlockAddress, byte *p_data, byte data_size);
+    byte write(byte memBlockAddress, byte *p_data, byte data_size);
+    bool read_register(REGISTER_NR regAddr, byte &value);
+    bool write_register(REGISTER_NR regAddr, byte mask, byte regdat);
+    static const byte ADDR_USERMEM_BLOCK1=0x01;
 private:
     typedef enum{
-        USERDATA,
-        REGISTER
+        CONFIG,//BLOCK0 (putting this in a separate block type, because errors here can "brick" the device.)
+        USERMEM,//EEPROM
+        REGISTER,//Configuration + Settings registers
+        SRAM
     }BLOCK_TYPE;
     const byte DEFAULT_I2C_ADDRESS=0x55;
     const byte NTAG_BLOCK_SIZE=16;
