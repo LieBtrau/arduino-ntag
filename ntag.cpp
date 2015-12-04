@@ -31,7 +31,7 @@ void Ntag::detectI2cDevices(){
 
 bool Ntag::getSerialNumber(byte* sn){
     byte data[7];
-    if(!read(0,data,7)){
+    if(!readchip(CONFIG, 0,data,7)){
         return false;
     }
     if(data[0]!=4){
@@ -41,9 +41,19 @@ bool Ntag::getSerialNumber(byte* sn){
     return true;
 }
 
-bool Ntag::read(byte memBlockAddress, byte *p_data, byte data_size)
+bool Ntag::readUserMem(byte memBlockAddress, byte *p_data, byte data_size)
 {
-    if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(USERMEM, memBlockAddress)){
+    return readchip(USERMEM, memBlockAddress, p_data, data_size);
+}
+
+bool Ntag::writeUserMem(byte memBlockAddress, byte *p_data, byte data_size)
+{
+    return writechip(USERMEM, memBlockAddress, p_data, data_size);
+}
+
+bool Ntag::readchip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
+{
+    if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(bt, memBlockAddress)){
         return false;
     }
     if(!end_transmission()){
@@ -61,9 +71,9 @@ bool Ntag::read(byte memBlockAddress, byte *p_data, byte data_size)
     return i==data_size;
 }
 
-byte Ntag::write(byte memBlockAddress, byte *p_data, byte data_size)
+byte Ntag::writechip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
 {
-    if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(USERMEM, memBlockAddress)){
+    if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(bt, memBlockAddress)){
         return 0;
     }
     for (int i=0; i<data_size; i++)
@@ -134,6 +144,7 @@ bool Ntag::isAddressValid(BLOCK_TYPE type, byte address){
         if(address!=0){
             return false;
         }
+        break;
     case USERMEM:
         switch (_dt) {
         case NTAG_I2C_1K:
