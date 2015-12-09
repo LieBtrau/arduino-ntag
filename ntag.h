@@ -24,16 +24,19 @@ public:
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getSerialNumber(byte* sn);
-    bool readUserMem(byte memBlockAddress, byte *p_data, byte data_size);
-    bool writeUserMem(byte memBlockAddress, byte *p_data, byte data_size);
+    bool read(byte address, byte* pdata, byte length);
+    bool write(byte address, byte* pdata, byte length);
+    bool readUserMem(byte blockNr, byte *p_data, byte data_size);
+    bool writeUserMem(byte blockNr, byte *p_data, byte data_size);
     bool read_register(REGISTER_NR regAddr, byte &value);
     bool write_register(REGISTER_NR regAddr, byte mask, byte regdat);
-    static const byte ADDR_USERMEM_BLOCK1=0x01;
+    void test();
+    static const byte USERMEM_BLOCK1=0x01;
 private:
     typedef enum{
         CONFIG=0x1,//BLOCK0 (putting this in a separate block type, because errors here can "brick" the device.)
         USERMEM=0x2,//EEPROM
-        REGISTER=0x4,//Configuration + Settings registers
+        REGISTER=0x4,//Settings registers
         SRAM=0x8
     }BLOCK_TYPE;
     const byte DEFAULT_I2C_ADDRESS=0x55;
@@ -41,8 +44,8 @@ private:
     bool writeMemAddress(BLOCK_TYPE dt, byte addr);
     bool end_transmission(void);
     bool isAddressValid(BLOCK_TYPE dt, byte address);
-    bool readchip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
-    byte writechip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
+    bool readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
+    byte writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
     byte _i2c_address;
     DEVICE_TYPE _dt;
 };

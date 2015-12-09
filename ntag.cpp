@@ -31,7 +31,7 @@ void Ntag::detectI2cDevices(){
 
 bool Ntag::getSerialNumber(byte* sn){
     byte data[7];
-    if(!readchip(CONFIG, 0,data,7)){
+    if(!readBlock(CONFIG, 0,data,7)){
         return false;
     }
     if(data[0]!=4){
@@ -41,17 +41,38 @@ bool Ntag::getSerialNumber(byte* sn){
     return true;
 }
 
-bool Ntag::readUserMem(byte memBlockAddress, byte *p_data, byte data_size)
+bool Ntag::write(byte address, byte* pdata, byte length)
 {
-    return readchip(USERMEM, memBlockAddress, p_data, data_size);
+
 }
 
-bool Ntag::writeUserMem(byte memBlockAddress, byte *p_data, byte data_size)
+bool Ntag::read(byte address, byte* pdata,  byte length)
 {
-    return writechip(USERMEM, memBlockAddress, p_data, data_size);
+    byte lengthLeft=length;
+    byte readLength;
+    for(byte i=address/NTAG_BLOCK_SIZE;lengthLeft>0;i++)
+    {
+        readLength=(lengthLeft > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : lengthLeft);
+        if(!readUserMem(USERMEM_BLOCK1 + i, pdata + NTAG_BLOCK_SIZE * i, readLength))
+        {
+            return false;
+        }
+        lengthLeft-=readLength;
+    }
+    return true;
 }
 
-bool Ntag::readchip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
+bool Ntag::readUserMem(byte blockNr, byte *p_data, byte data_size)
+{
+    return readBlock(USERMEM, blockNr, p_data, data_size);
+}
+
+bool Ntag::writeUserMem(byte blockNr, byte *p_data, byte data_size)
+{
+    return writeBlock(USERMEM, blockNr, p_data, data_size);
+}
+
+bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
 {
     if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(bt, memBlockAddress)){
         return false;
@@ -71,7 +92,7 @@ bool Ntag::readchip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data
     return i==data_size;
 }
 
-byte Ntag::writechip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
+byte Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
 {
     if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(bt, memBlockAddress)){
         return 0;
@@ -84,6 +105,16 @@ byte Ntag::writechip(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte dat
     }
     if(!end_transmission()){
         return 0;
+    }
+    switch(bt){
+    case CONFIG:
+    case USERMEM:
+        delay(5);//16 bytes (one block) written in 4.5 ms (EEPROM)
+        break;
+    case REGISTER:
+    case SRAM:
+        delay_us(500);//0.4 ms (SRAM - Pass-through mode) including all overhead
+        break;
     }
     return data_size;
 }
@@ -188,3 +219,52 @@ bool Ntag::isAddressValid(BLOCK_TYPE type, byte address){
     }
     return true;
 }
+
+void Ntag::test(){
+    byte eepromdata[2*NTAG_BLOCK_SIZE];
+    byte readeeprom[NTAG_BLOCK_SIZE];
+    byte sn[7];
+    if(!begin()){
+        Serial.println("Can't find ntag");
+    }
+//    if(getSerialNumber(sn)){
+//        for(byte i=0;i<7;i++){
+//            Serial.print(sn[i], HEX);
+//            Serial.print(" ");
+//        }
+//    }
+//    Serial.println();
+
+
+    for(byte i=0;i<2*NTAG_BLOCK_SIZE;i++){
+        eepromdata[i]=0x80 | i;
+    }
+//    if(writeBlock(USERMEM,USERMEM_BLOCK1,eepromdata, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
+//        Serial.println("Write block 1 failed");
+//    }
+//    if(writeBlock(USERMEM,USERMEM_BLOCK1+1,eepromdata+NTAG_BLOCK_SIZE, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
+//        Serial.println("Write block 2 failed");
+//    }
+    if(readBlock(USERMEM,USERMEM_BLOCK1,readeeprom,NTAG_BLOCK_SIZE)){
+        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
+            Serial.print(readeeprom[i],HEX);
+            Serial.print(" ");
+        }
+    }
+    Serial.println();
+    if(readBlock(USERMEM,USERMEM_BLOCK1+1,readeeprom,NTAG_BLOCK_SIZE)){
+        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
+            Serial.print(readeeprom[i],HEX);
+            Serial.print(" ");
+        }
+    }
+    Serial.println();
+    //    byte data;
+    //    Serial.println(ntag.read_register(Ntag::NC_REG,data));
+    //    Serial.println(data,HEX);
+    //    Serial.println(ntag.write_register(Ntag::NC_REG,0x0C,0x0A));
+    //    Serial.println(ntag.read_register(Ntag::NC_REG,data));
+    //    Serial.println(data,HEX);
+
+}
+
