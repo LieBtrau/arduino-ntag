@@ -27,7 +27,7 @@ public:
     bool read(byte address, byte* pdata, byte length);
     bool write(byte address, byte* pdata, byte length);
     bool readUserMem(byte blockNr, byte *p_data, byte data_size);
-    bool writeUserMem(byte blockNr, byte *p_data, byte data_size);
+    bool writeUserMem(byte blockNr, byte *p_data);
     bool read_register(REGISTER_NR regAddr, byte &value);
     bool write_register(REGISTER_NR regAddr, byte mask, byte regdat);
     void test();
@@ -45,7 +45,7 @@ private:
     bool end_transmission(void);
     bool isAddressValid(BLOCK_TYPE dt, byte address);
     bool readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
-    byte writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
+    bool writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data);
     byte _i2c_address;
     DEVICE_TYPE _dt;
 };

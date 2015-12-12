@@ -43,21 +43,76 @@ bool Ntag::getSerialNumber(byte* sn){
 
 bool Ntag::write(byte address, byte* pdata, byte length)
 {
+    byte readbuffer[NTAG_BLOCK_SIZE];
+    byte writeLength;
+    byte* wptr=pdata;
 
+    writeLength=min(NTAG_BLOCK_SIZE, (address % NTAG_BLOCK_SIZE) + length);
+    if(address % NTAG_BLOCK_SIZE !=0)
+    {
+        //start address doesn't point to start of block, so we must read the bytes that precede the address range to
+        //be written.
+        if(!readUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),readbuffer, writeLength))
+        {
+            return false;
+        }
+        writeLength-=address % NTAG_BLOCK_SIZE;
+        memcpy(readbuffer + (address % NTAG_BLOCK_SIZE), pdata, writeLength);
+        if(!writeUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),readbuffer))
+        {
+            return false;
+        }
+        wptr+=writeLength;
+    }
+    else
+    {
+        if(!writeUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),wptr))
+        {
+            return false;
+        }
+        wptr+=NTAG_BLOCK_SIZE;
+    }
+    for(byte i=(address/NTAG_BLOCK_SIZE)+1;wptr<pdata+length;i++)
+    {
+        writeLength=(pdata+length-wptr > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : pdata+length-wptr);
+        if(writeLength!=NTAG_BLOCK_SIZE){
+            if(!readUserMem(USERMEM_BLOCK1 + i,readbuffer, NTAG_BLOCK_SIZE))
+            {
+                return false;
+            }
+            memcpy(readbuffer, wptr, writeLength);
+        }
+        if(!writeUserMem(USERMEM_BLOCK1 + i, writeLength==NTAG_BLOCK_SIZE ? wptr : readbuffer))
+        {
+            return false;
+        }
+        wptr+=writeLength;
+    }
+    return true;
 }
 
 bool Ntag::read(byte address, byte* pdata,  byte length)
 {
-    byte lengthLeft=length;
+    byte readbuffer[NTAG_BLOCK_SIZE];
     byte readLength;
-    for(byte i=address/NTAG_BLOCK_SIZE;lengthLeft>0;i++)
+    byte* wptr=pdata;
+
+    readLength=min(NTAG_BLOCK_SIZE, (address % NTAG_BLOCK_SIZE) + length);
+    if(!readUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),readbuffer, readLength))
     {
-        readLength=(lengthLeft > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : lengthLeft);
-        if(!readUserMem(USERMEM_BLOCK1 + i, pdata + NTAG_BLOCK_SIZE * i, readLength))
+        return false;
+    }
+    readLength-=address % NTAG_BLOCK_SIZE;
+    memcpy(wptr,readbuffer + (address % NTAG_BLOCK_SIZE), readLength);
+    wptr+=readLength;
+    for(byte i=(address/NTAG_BLOCK_SIZE)+1;wptr<pdata+length;i++)
+    {
+        readLength=(pdata+length-wptr > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : pdata+length-wptr);
+        if(!readUserMem(USERMEM_BLOCK1 + i, wptr, readLength))
         {
             return false;
         }
-        lengthLeft-=readLength;
+        wptr+=readLength;
     }
     return true;
 }
@@ -67,9 +122,9 @@ bool Ntag::readUserMem(byte blockNr, byte *p_data, byte data_size)
     return readBlock(USERMEM, blockNr, p_data, data_size);
 }
 
-bool Ntag::writeUserMem(byte blockNr, byte *p_data, byte data_size)
+bool Ntag::writeUserMem(byte blockNr, byte *p_data)
 {
-    return writeBlock(USERMEM, blockNr, p_data, data_size);
+    return writeBlock(USERMEM, blockNr, p_data);
 }
 
 bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
@@ -92,19 +147,19 @@ bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte dat
     return i==data_size;
 }
 
-byte Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
+bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
 {
-    if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(bt, memBlockAddress)){
-        return 0;
+    if(!writeMemAddress(bt, memBlockAddress)){
+        return false;
     }
-    for (int i=0; i<data_size; i++)
+    for (int i=0; i<NTAG_BLOCK_SIZE; i++)
     {
         if(HWire.write(p_data[i])!=1){
             break;
         }
     }
     if(!end_transmission()){
-        return 0;
+        return false;
     }
     switch(bt){
     case CONFIG:
@@ -116,7 +171,7 @@ byte Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte da
         delay_us(500);//0.4 ms (SRAM - Pass-through mode) including all overhead
         break;
     }
-    return data_size;
+    return true;
 }
 
 bool Ntag::read_register(REGISTER_NR regAddr, byte& value)
@@ -227,24 +282,23 @@ void Ntag::test(){
     if(!begin()){
         Serial.println("Can't find ntag");
     }
-//    if(getSerialNumber(sn)){
-//        for(byte i=0;i<7;i++){
-//            Serial.print(sn[i], HEX);
-//            Serial.print(" ");
-//        }
-//    }
-//    Serial.println();
-
-
+    //    if(getSerialNumber(sn)){
+    //        for(byte i=0;i<7;i++){
+    //            Serial.print(sn[i], HEX);
+    //            Serial.print(" ");
+    //        }
+    //    }
+    //    Serial.println();
     for(byte i=0;i<2*NTAG_BLOCK_SIZE;i++){
         eepromdata[i]=0x80 | i;
     }
-//    if(writeBlock(USERMEM,USERMEM_BLOCK1,eepromdata, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
-//        Serial.println("Write block 1 failed");
-//    }
-//    if(writeBlock(USERMEM,USERMEM_BLOCK1+1,eepromdata+NTAG_BLOCK_SIZE, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
-//        Serial.println("Write block 2 failed");
-//    }
+    //    if(writeBlock(USERMEM,USERMEM_BLOCK1,eepromdata, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
+    //        Serial.println("Write block 1 failed");
+    //    }
+    //    if(writeBlock(USERMEM,USERMEM_BLOCK1+1,eepromdata+NTAG_BLOCK_SIZE, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
+    //        Serial.println("Write block 2 failed");
+    //    }
+    Serial.println("\nReading memory block 1");
     if(readBlock(USERMEM,USERMEM_BLOCK1,readeeprom,NTAG_BLOCK_SIZE)){
         for(int i=0;i<NTAG_BLOCK_SIZE;i++){
             Serial.print(readeeprom[i],HEX);
@@ -252,6 +306,7 @@ void Ntag::test(){
         }
     }
     Serial.println();
+    Serial.println("Reading memory block 2");
     if(readBlock(USERMEM,USERMEM_BLOCK1+1,readeeprom,NTAG_BLOCK_SIZE)){
         for(int i=0;i<NTAG_BLOCK_SIZE;i++){
             Serial.print(readeeprom[i],HEX);
@@ -259,6 +314,36 @@ void Ntag::test(){
         }
     }
     Serial.println();
+    Serial.println("Reading bytes 10 to 20");
+    if(read(10,readeeprom,10)){
+        for(int i=0;i<10;i++){
+            Serial.print(readeeprom[i],HEX);
+            Serial.print(" ");
+        }
+    }
+    Serial.println();
+    Serial.println("Writing byte 15 to 20");
+    for(byte i=0;i<6;i++){
+        eepromdata[i]=0x70 | i;
+    }
+    if(write(15,eepromdata,6)){
+        Serial.println("Write success");
+    }
+    Serial.println("\nReading memory block 1");
+    if(readBlock(USERMEM,USERMEM_BLOCK1,readeeprom,NTAG_BLOCK_SIZE)){
+        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
+            Serial.print(readeeprom[i],HEX);
+            Serial.print(" ");
+        }
+    }
+    Serial.println();
+    Serial.println("Reading memory block 2");
+    if(readBlock(USERMEM,USERMEM_BLOCK1+1,readeeprom,NTAG_BLOCK_SIZE)){
+        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
+            Serial.print(readeeprom[i],HEX);
+            Serial.print(" ");
+        }
+    }
     //    byte data;
     //    Serial.println(ntag.read_register(Ntag::NC_REG,data));
     //    Serial.println(data,HEX);
