@@ -41,6 +41,19 @@ bool Ntag::getSerialNumber(byte* sn){
     return true;
 }
 
+bool Ntag::setSramMemMap(bool bEnable){
+    //Mirror SRAM to bottom of USERMEM (avoid firmware change in NFC-reader)
+    if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,0x01)){
+        return false;
+    }
+    //disable pass-through mode
+    //enable/disable SRAM memory mirror
+    if(!writeRegister(NC_REG, 0x42, bEnable ? 0x02 : 0x00)){
+        return false;
+    }
+    return true;
+}
+
 bool Ntag::write(byte address, byte* pdata, byte length)
 {
     byte readbuffer[NTAG_BLOCK_SIZE];
@@ -174,7 +187,7 @@ bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
     return true;
 }
 
-bool Ntag::read_register(REGISTER_NR regAddr, byte& value)
+bool Ntag::readRegister(REGISTER_NR regAddr, byte& value)
 {
     value=0;
     bool bRetVal=true;
@@ -195,7 +208,7 @@ bool Ntag::read_register(REGISTER_NR regAddr, byte& value)
     return bRetVal;
 }
 
-bool Ntag::write_register(REGISTER_NR regAddr, byte mask, byte regdat)
+bool Ntag::writeRegister(REGISTER_NR regAddr, byte mask, byte regdat)
 {
     bool bRetVal=false;
     if(regAddr>7 || !writeMemAddress(REGISTER, 0xFE)){
@@ -274,82 +287,3 @@ bool Ntag::isAddressValid(BLOCK_TYPE type, byte address){
     }
     return true;
 }
-
-void Ntag::test(){
-    byte eepromdata[2*NTAG_BLOCK_SIZE];
-    byte readeeprom[NTAG_BLOCK_SIZE];
-    byte sn[7];
-    if(!begin()){
-        Serial.println("Can't find ntag");
-    }
-    //    if(getSerialNumber(sn)){
-    //        for(byte i=0;i<7;i++){
-    //            Serial.print(sn[i], HEX);
-    //            Serial.print(" ");
-    //        }
-    //    }
-    //    Serial.println();
-    for(byte i=0;i<2*NTAG_BLOCK_SIZE;i++){
-        eepromdata[i]=0x80 | i;
-    }
-    //    if(writeBlock(USERMEM,USERMEM_BLOCK1,eepromdata, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
-    //        Serial.println("Write block 1 failed");
-    //    }
-    //    if(writeBlock(USERMEM,USERMEM_BLOCK1+1,eepromdata+NTAG_BLOCK_SIZE, NTAG_BLOCK_SIZE)!=NTAG_BLOCK_SIZE){
-    //        Serial.println("Write block 2 failed");
-    //    }
-    Serial.println("\nReading memory block 1");
-    if(readBlock(USERMEM,USERMEM_BLOCK1,readeeprom,NTAG_BLOCK_SIZE)){
-        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
-    }
-    Serial.println();
-    Serial.println("Reading memory block 2");
-    if(readBlock(USERMEM,USERMEM_BLOCK1+1,readeeprom,NTAG_BLOCK_SIZE)){
-        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
-    }
-    Serial.println();
-    Serial.println("Reading bytes 10 to 20");
-    if(read(10,readeeprom,10)){
-        for(int i=0;i<10;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
-    }
-    Serial.println();
-    Serial.println("Writing byte 15 to 20");
-    for(byte i=0;i<6;i++){
-        eepromdata[i]=0x70 | i;
-    }
-    if(write(15,eepromdata,6)){
-        Serial.println("Write success");
-    }
-    Serial.println("\nReading memory block 1");
-    if(readBlock(USERMEM,USERMEM_BLOCK1,readeeprom,NTAG_BLOCK_SIZE)){
-        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
-    }
-    Serial.println();
-    Serial.println("Reading memory block 2");
-    if(readBlock(USERMEM,USERMEM_BLOCK1+1,readeeprom,NTAG_BLOCK_SIZE)){
-        for(int i=0;i<NTAG_BLOCK_SIZE;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
-    }
-    //    byte data;
-    //    Serial.println(ntag.read_register(Ntag::NC_REG,data));
-    //    Serial.println(data,HEX);
-    //    Serial.println(ntag.write_register(Ntag::NC_REG,0x0C,0x0A));
-    //    Serial.println(ntag.read_register(Ntag::NC_REG,data));
-    //    Serial.println(data,HEX);
-
-}
-
