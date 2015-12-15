@@ -41,7 +41,10 @@ bool Ntag::getSerialNumber(byte* sn){
     return true;
 }
 
-bool Ntag::setSramMemMap(bool bEnable){
+//Mirror SRAM to bottom of EEPROM
+//Remark that the SRAM mirroring is only valid for the RF-interface.
+//For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area
+bool Ntag::setSramMirrorRf(bool bEnable){
     //Mirror SRAM to bottom of USERMEM (avoid firmware change in NFC-reader)
     if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,0x01)){
         return false;
@@ -128,6 +131,16 @@ bool Ntag::read(byte address, byte* pdata,  byte length)
         wptr+=readLength;
     }
     return true;
+}
+
+bool Ntag::readSram(byte blockNr, byte *p_data, byte data_size)
+{
+    return readBlock(SRAM, blockNr, p_data, data_size);
+}
+
+bool Ntag::writeSram(byte blockNr, byte *p_data)
+{
+    return writeBlock(SRAM, blockNr, p_data);
 }
 
 bool Ntag::readUserMem(byte blockNr, byte *p_data, byte data_size)

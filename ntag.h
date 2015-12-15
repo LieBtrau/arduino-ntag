@@ -24,11 +24,13 @@ public:
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getSerialNumber(byte* sn);
-    bool setSramMemMap(bool bEnable);
+    bool setSramMirrorRf(bool bEnable);
     bool read(byte address, byte* pdata, byte length);
     bool write(byte address, byte* pdata, byte length);
     bool readUserMem(byte blockNr, byte *p_data, byte data_size);
     bool writeUserMem(byte blockNr, byte *p_data);
+    bool readSram(byte blockNr, byte *p_data, byte data_size);
+    bool writeSram(byte blockNr, byte *p_data);
     bool readRegister(REGISTER_NR regAddr, byte &value);
     bool writeRegister(REGISTER_NR regAddr, byte mask, byte regdat);
     void test();

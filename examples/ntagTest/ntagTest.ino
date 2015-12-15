@@ -11,13 +11,56 @@ void setup(){
     if(!ntag.begin()){
         Serial.println("Can't find ntag");
     }
-    testSn();
-    testUserMem();
-    testRegisterAccess();
+//    getSerialNumber();
+//    testUserMem();
+//    testRegisterAccess();
+    testSramMirror();
+//    testSram();
 }
 
 void loop(){
 
+}
+
+void testSram(){
+    byte data[16];
+    Serial.println("Reading SRAM block 0xF8");
+    if(ntag.readSram(0xF8,data,16)){
+        showBlockInHex(data,16);
+    }
+    for(byte i=0;i<16;i++){
+        data[i]=0xF0 | i;
+    }
+    Serial.println("Writing dummy data to SRAM block 0xF8");
+    if(!ntag.writeSram(0xF8,data)){
+        return;
+    }
+    Serial.println("Reading SRAM block 0xF8 again");
+    if(ntag.readSram(0xF8,data,16)){
+        showBlockInHex(data,16);
+    }
+}
+
+void testSramMirror(){
+    byte readeeprom[16];
+    byte data;
+
+    if(!ntag.setSramMirrorRf(false))return;
+    Serial.println("\nReading memory block 1, no mirroring of SRAM");
+    if(ntag.readUserMem(1,readeeprom,16)){
+        showBlockInHex(readeeprom,16);
+    }
+    Serial.println("\nReading SRAM block 1");
+    if(ntag.readSram(0xF8,readeeprom,16)){
+        showBlockInHex(readeeprom,16);
+    }
+    if(!ntag.setSramMirrorRf(true))return;
+    Serial.print("NC_REG: ");
+    if(ntag.readRegister(Ntag::NC_REG,data)){
+        Serial.println(data, HEX);
+    }
+    Serial.println("Use an NFC-reader to verify that the SRAM \
+        has been mapped to the memory area that the reader will access by default");
 }
 
 void testRegisterAccess(){
@@ -29,7 +72,7 @@ void testRegisterAccess(){
     Serial.println(data,HEX);
 }
 
-void testSn(){
+void getSerialNumber(){
     byte sn[7];
     Serial.println();
     Serial.print("Serial number of the tag is: ");
@@ -60,28 +103,16 @@ void testUserMem(){
     }
     Serial.println("\nReading memory block 1");
     if(ntag.readUserMem(1,readeeprom,16)){
-        for(int i=0;i<16;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
+        showBlockInHex(readeeprom,16);
     }
-    Serial.println();
     Serial.println("Reading memory block 2");
     if(ntag.readUserMem(2,readeeprom,16)){
-        for(int i=0;i<16;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
+        showBlockInHex(readeeprom,16);
     }
-    Serial.println();
     Serial.println("Reading bytes 10 to 20: partly block 1, partly block 2");
     if(ntag.read(10,readeeprom,10)){
-        for(int i=0;i<10;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
+        showBlockInHex(readeeprom,10);
     }
-    Serial.println();
     Serial.println("Writing byte 15 to 20: partly block 1, partly block 2");
     for(byte i=0;i<6;i++){
         eepromdata[i]=0x70 | i;
@@ -92,17 +123,18 @@ void testUserMem(){
     Serial.println("\nReading memory block 1");
     Serial.println("\nReading memory block 1");
     if(ntag.readUserMem(1,readeeprom,16)){
-        for(int i=0;i<16;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
+        showBlockInHex(readeeprom,16);
     }
-    Serial.println();
     Serial.println("Reading memory block 2");
     if(ntag.readUserMem(2,readeeprom,16)){
-        for(int i=0;i<16;i++){
-            Serial.print(readeeprom[i],HEX);
-            Serial.print(" ");
-        }
+        showBlockInHex(readeeprom,16);
     }
+}
+
+void showBlockInHex(byte* data, byte size){
+    for(int i=0;i<16;i++){
+        Serial.print(data[i],HEX);
+        Serial.print(" ");
+    }
+    Serial.println();
 }
