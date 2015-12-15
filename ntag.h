@@ -25,16 +25,13 @@ public:
     bool begin();
     bool getSerialNumber(byte* sn);
     bool setSramMirrorRf(bool bEnable);
-    bool read(byte address, byte* pdata, byte length);
-    bool write(byte address, byte* pdata, byte length);
-    bool readUserMem(byte blockNr, byte *p_data, byte data_size);
-    bool writeUserMem(byte blockNr, byte *p_data);
-    bool readSram(byte blockNr, byte *p_data, byte data_size);
-    bool writeSram(byte blockNr, byte *p_data);
+    bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
+    bool writeEeprom(word address, byte* pdata, byte length);//starts at address 0
+    bool readSram(word address, byte* pdata, byte length);//starts at address 0
+    bool writeSram(word address, byte* pdata, byte length);//starts at address 0
     bool readRegister(REGISTER_NR regAddr, byte &value);
     bool writeRegister(REGISTER_NR regAddr, byte mask, byte regdat);
     void test();
-    static const byte USERMEM_BLOCK1=0x01;
 private:
     typedef enum{
         CONFIG=0x1,//BLOCK0 (putting this in a separate block type, because errors here can "brick" the device.)
@@ -44,11 +41,15 @@ private:
     }BLOCK_TYPE;
     const byte DEFAULT_I2C_ADDRESS=0x55;
     const byte NTAG_BLOCK_SIZE=16;
-    bool writeMemAddress(BLOCK_TYPE dt, byte addr);
-    bool end_transmission(void);
-    bool isAddressValid(BLOCK_TYPE dt, byte address);
+    const word EEPROM_BASE_ADDR=0x1<<4;
+    const word SRAM_BASE_ADDR=0xF8<<4;
+    bool write(BLOCK_TYPE bt, word address, byte* pdata, byte length);
+    bool read(BLOCK_TYPE bt, word address, byte* pdata,  byte length);
     bool readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
     bool writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data);
+    bool writeBlockAddress(BLOCK_TYPE dt, byte addr);
+    bool end_transmission(void);
+    bool isAddressValid(BLOCK_TYPE dt, byte address);
     byte _i2c_address;
     DEVICE_TYPE _dt;
 };

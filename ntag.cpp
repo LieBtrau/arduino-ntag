@@ -57,7 +57,27 @@ bool Ntag::setSramMirrorRf(bool bEnable){
     return true;
 }
 
-bool Ntag::write(byte address, byte* pdata, byte length)
+bool Ntag::readSram(word address, byte *pdata, byte length)
+{
+    return read(SRAM, address+SRAM_BASE_ADDR, pdata, length);
+}
+
+bool Ntag::writeSram(word address, byte *pdata, byte length)
+{
+    return write(SRAM, address+SRAM_BASE_ADDR, pdata, length);
+}
+
+bool Ntag::readEeprom(word address, byte *pdata, byte length)
+{
+    return read(USERMEM, address+EEPROM_BASE_ADDR, pdata, length);
+}
+
+bool Ntag::writeEeprom(word address, byte *pdata, byte length)
+{
+    return write(USERMEM, address+EEPROM_BASE_ADDR, pdata, length);
+}
+
+bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
 {
     byte readbuffer[NTAG_BLOCK_SIZE];
     byte writeLength;
@@ -66,15 +86,15 @@ bool Ntag::write(byte address, byte* pdata, byte length)
     writeLength=min(NTAG_BLOCK_SIZE, (address % NTAG_BLOCK_SIZE) + length);
     if(address % NTAG_BLOCK_SIZE !=0)
     {
-        //start address doesn't point to start of block, so we must read the bytes that precede the address range to
-        //be written.
-        if(!readUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),readbuffer, writeLength))
+        //start address doesn't point to start of block, so the bytes in this block that precede the address range must
+        //be read.
+        if(!readBlock(bt, address/NTAG_BLOCK_SIZE, readbuffer, writeLength))
         {
             return false;
         }
         writeLength-=address % NTAG_BLOCK_SIZE;
         memcpy(readbuffer + (address % NTAG_BLOCK_SIZE), pdata, writeLength);
-        if(!writeUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),readbuffer))
+        if(!writeBlock(bt, address/NTAG_BLOCK_SIZE, readbuffer))
         {
             return false;
         }
@@ -82,7 +102,7 @@ bool Ntag::write(byte address, byte* pdata, byte length)
     }
     else
     {
-        if(!writeUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),wptr))
+        if(!writeBlock(bt, address/NTAG_BLOCK_SIZE, wptr))
         {
             return false;
         }
@@ -92,13 +112,13 @@ bool Ntag::write(byte address, byte* pdata, byte length)
     {
         writeLength=(pdata+length-wptr > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : pdata+length-wptr);
         if(writeLength!=NTAG_BLOCK_SIZE){
-            if(!readUserMem(USERMEM_BLOCK1 + i,readbuffer, NTAG_BLOCK_SIZE))
+            if(!readBlock(bt, i, readbuffer, NTAG_BLOCK_SIZE))
             {
                 return false;
             }
             memcpy(readbuffer, wptr, writeLength);
         }
-        if(!writeUserMem(USERMEM_BLOCK1 + i, writeLength==NTAG_BLOCK_SIZE ? wptr : readbuffer))
+        if(!writeBlock(bt, i, writeLength==NTAG_BLOCK_SIZE ? wptr : readbuffer))
         {
             return false;
         }
@@ -107,14 +127,14 @@ bool Ntag::write(byte address, byte* pdata, byte length)
     return true;
 }
 
-bool Ntag::read(byte address, byte* pdata,  byte length)
+bool Ntag::read(BLOCK_TYPE bt, word address, byte* pdata,  byte length)
 {
     byte readbuffer[NTAG_BLOCK_SIZE];
     byte readLength;
     byte* wptr=pdata;
 
     readLength=min(NTAG_BLOCK_SIZE, (address % NTAG_BLOCK_SIZE) + length);
-    if(!readUserMem(USERMEM_BLOCK1 + (address/NTAG_BLOCK_SIZE),readbuffer, readLength))
+    if(!readBlock(bt, address/NTAG_BLOCK_SIZE, readbuffer, readLength))
     {
         return false;
     }
@@ -124,7 +144,7 @@ bool Ntag::read(byte address, byte* pdata,  byte length)
     for(byte i=(address/NTAG_BLOCK_SIZE)+1;wptr<pdata+length;i++)
     {
         readLength=(pdata+length-wptr > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : pdata+length-wptr);
-        if(!readUserMem(USERMEM_BLOCK1 + i, wptr, readLength))
+        if(!readBlock(bt, i, wptr, readLength))
         {
             return false;
         }
@@ -133,29 +153,9 @@ bool Ntag::read(byte address, byte* pdata,  byte length)
     return true;
 }
 
-bool Ntag::readSram(byte blockNr, byte *p_data, byte data_size)
-{
-    return readBlock(SRAM, blockNr, p_data, data_size);
-}
-
-bool Ntag::writeSram(byte blockNr, byte *p_data)
-{
-    return writeBlock(SRAM, blockNr, p_data);
-}
-
-bool Ntag::readUserMem(byte blockNr, byte *p_data, byte data_size)
-{
-    return readBlock(USERMEM, blockNr, p_data, data_size);
-}
-
-bool Ntag::writeUserMem(byte blockNr, byte *p_data)
-{
-    return writeBlock(USERMEM, blockNr, p_data);
-}
-
 bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size)
 {
-    if(data_size>NTAG_BLOCK_SIZE || !writeMemAddress(bt, memBlockAddress)){
+    if(data_size>NTAG_BLOCK_SIZE || !writeBlockAddress(bt, memBlockAddress)){
         return false;
     }
     if(!end_transmission()){
@@ -175,7 +175,7 @@ bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte dat
 
 bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
 {
-    if(!writeMemAddress(bt, memBlockAddress)){
+    if(!writeBlockAddress(bt, memBlockAddress)){
         return false;
     }
     for (int i=0; i<NTAG_BLOCK_SIZE; i++)
@@ -204,7 +204,7 @@ bool Ntag::readRegister(REGISTER_NR regAddr, byte& value)
 {
     value=0;
     bool bRetVal=true;
-    if(regAddr>6 || !writeMemAddress(REGISTER, 0xFE)){
+    if(regAddr>6 || !writeBlockAddress(REGISTER, 0xFE)){
         return false;
     }
     if(HWire.write(regAddr)!=1){
@@ -224,7 +224,7 @@ bool Ntag::readRegister(REGISTER_NR regAddr, byte& value)
 bool Ntag::writeRegister(REGISTER_NR regAddr, byte mask, byte regdat)
 {
     bool bRetVal=false;
-    if(regAddr>7 || !writeMemAddress(REGISTER, 0xFE)){
+    if(regAddr>7 || !writeBlockAddress(REGISTER, 0xFE)){
         return false;
     }
     if (HWire.write(regAddr)==1 &&
@@ -235,7 +235,7 @@ bool Ntag::writeRegister(REGISTER_NR regAddr, byte mask, byte regdat)
     return end_transmission() && bRetVal;
 }
 
-bool Ntag::writeMemAddress(BLOCK_TYPE dt, byte addr)
+bool Ntag::writeBlockAddress(BLOCK_TYPE dt, byte addr)
 {
     if(!isAddressValid(dt, addr)){
         return false;
@@ -279,19 +279,7 @@ bool Ntag::isAddressValid(BLOCK_TYPE type, byte address){
         }
         break;
     case REGISTER:
-        switch (_dt) {
-        //todo: check if writing 0x3A also requires write_register instead of write function.
-        case NTAG_I2C_1K:
-            if(address != 0x3A && address != 0xFE){
-                return false;
-            }
-            break;
-        case NTAG_I2C_2K:
-            if(address != 0x7A && address != 0xFE){
-                return false;
-            }
-            break;
-        default:
+        if(address != 0xFE){
             return false;
         }
         break;
