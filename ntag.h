@@ -24,13 +24,14 @@ public:
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getSerialNumber(byte* sn);
-    bool setSramMirrorRf(bool bEnable);
+    bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
     bool writeEeprom(word address, byte* pdata, byte length);//starts at address 0
     bool readSram(word address, byte* pdata, byte length);//starts at address 0
     bool writeSram(word address, byte* pdata, byte length);//starts at address 0
     bool readRegister(REGISTER_NR regAddr, byte &value);
     bool writeRegister(REGISTER_NR regAddr, byte mask, byte regdat);
+    bool setLastNdefBlock();
     void releaseI2c();
     bool waitUntilNdefRead(word uiTimeout_ms);
     void debug();
@@ -51,11 +52,12 @@ private:
     bool writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data);
     bool writeBlockAddress(BLOCK_TYPE dt, byte addr);
     bool end_transmission(void);
-    bool isAddressValid(BLOCK_TYPE dt, byte address);
+    bool isAddressValid(BLOCK_TYPE dt, byte blocknr);
     bool setLastNdefBlock(byte memBlockAddress);
     byte _i2c_address;
-    bool _bSramMirrorMode;
     DEVICE_TYPE _dt;
+    byte _lastMemBlockWritten;
+    byte _mirrorBaseBlockNr;
 };
 
 #endif // NTAG_H

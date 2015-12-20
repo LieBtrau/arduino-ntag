@@ -4,7 +4,7 @@
 
 HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 
-Ntag::Ntag(DEVICE_TYPE dt): _dt(dt), _i2c_address(DEFAULT_I2C_ADDRESS), _bSramMirrorMode(false)
+Ntag::Ntag(DEVICE_TYPE dt): _dt(dt), _i2c_address(DEFAULT_I2C_ADDRESS), _lastMemBlockWritten(0)
 {
 }
 
@@ -44,14 +44,13 @@ bool Ntag::getSerialNumber(byte* sn){
 //Mirror SRAM to bottom of EEPROM
 //Remark that the SRAM mirroring is only valid for the RF-interface.
 //For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area
-bool Ntag::setSramMirrorRf(bool bEnable){
-    //Mirror SRAM to bottom of USERMEM (avoids firmware change in NFC-reader)
-    if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,0x01)){
+bool Ntag::setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr){
+    if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,mirrorBaseBlockNr)){
         return false;
     }
+    _mirrorBaseBlockNr = bEnable ? mirrorBaseBlockNr : 0;
     //disable pass-through mode
     //enable/disable SRAM memory mirror
-    _bSramMirrorMode=bEnable;
     return writeRegister(NC_REG, 0x42, bEnable ? 0x02 : 0x00);
 }
 
@@ -142,9 +141,8 @@ bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
         wptr+=writeLength;
         blockNr++;
     }
-    //When SRAM mirroring is used, the LAST_NDEF_BLOCK must point to USERMEM, not to SRAM
-    blockNr--;
-    return setLastNdefBlock(_bSramMirrorMode && bt==SRAM ? blockNr - ((SRAM_BASE_ADDR - EEPROM_BASE_ADDR)>>4) : blockNr);
+    _lastMemBlockWritten = blockNr--;
+    return true;
 }
 
 bool Ntag::read(BLOCK_TYPE bt, word address, byte* pdata,  byte length)
@@ -193,9 +191,11 @@ bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte dat
     return i==data_size;
 }
 
-bool Ntag::setLastNdefBlock(byte memBlockAddress)
+bool Ntag::setLastNdefBlock()
 {
-    return writeRegister(LAST_NDEF_BLOCK, 0xFF,memBlockAddress);
+    //When SRAM mirroring is used, the LAST_NDEF_BLOCK must point to USERMEM, not to SRAM
+    return writeRegister(LAST_NDEF_BLOCK, 0xFF, isAddressValid(SRAM, _lastMemBlockWritten) ?
+        _lastMemBlockWritten - (SRAM_BASE_ADDR>>4) + _mirrorBaseBlockNr : _lastMemBlockWritten);
 }
 
 bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
@@ -277,22 +277,22 @@ bool Ntag::end_transmission(void)
     //I2C_LOCKED must be either reset to 0b at the end of the I2C sequence or wait until the end of the watch dog timer.
 }
 
-bool Ntag::isAddressValid(BLOCK_TYPE type, byte address){
+bool Ntag::isAddressValid(BLOCK_TYPE type, byte blocknr){
     switch(type){
     case CONFIG:
-        if(address!=0){
+        if(blocknr!=0){
             return false;
         }
         break;
     case USERMEM:
         switch (_dt) {
         case NTAG_I2C_1K:
-            if(address < 1 || address > 0x38){
+            if(blocknr < 1 || blocknr > 0x38){
                 return false;
             }
             break;
         case NTAG_I2C_2K:
-            if(address < 1 || address > 0x78){
+            if(blocknr < 1 || blocknr > 0x78){
                 return false;
             }
             break;
@@ -301,12 +301,12 @@ bool Ntag::isAddressValid(BLOCK_TYPE type, byte address){
         }
         break;
     case SRAM:
-        if(address < 0xF8 || address > 0xFB){
+        if(blocknr < 0xF8 || blocknr > 0xFB){
             return false;
         }
         break;
     case REGISTER:
-        if(address != 0xFE){
+        if(blocknr != 0xFE){
             return false;
         }
         break;
