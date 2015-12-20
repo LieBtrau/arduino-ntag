@@ -17,7 +17,7 @@ public:
         WDT_LS,
         WDT_MS,
         I2C_CLOCK_STR,
-        REG_LOCK
+        NS_REG
     }REGISTER_NR;
     Ntag(DEVICE_TYPE dt);
     Ntag(DEVICE_TYPE dt, byte i2c_address);
@@ -31,7 +31,9 @@ public:
     bool writeSram(word address, byte* pdata, byte length);//starts at address 0
     bool readRegister(REGISTER_NR regAddr, byte &value);
     bool writeRegister(REGISTER_NR regAddr, byte mask, byte regdat);
-    void test();
+    void releaseI2c();
+    bool waitUntilNdefRead(word uiTimeout_ms);
+    void debug();
 private:
     typedef enum{
         CONFIG=0x1,//BLOCK0 (putting this in a separate block type, because errors here can "brick" the device.)
@@ -50,7 +52,9 @@ private:
     bool writeBlockAddress(BLOCK_TYPE dt, byte addr);
     bool end_transmission(void);
     bool isAddressValid(BLOCK_TYPE dt, byte address);
+    bool setLastNdefBlock(byte memBlockAddress);
     byte _i2c_address;
+    bool _bSramMirrorMode;
     DEVICE_TYPE _dt;
 };
 

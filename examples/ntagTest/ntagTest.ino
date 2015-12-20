@@ -15,7 +15,8 @@ void setup(){
 //    testUserMem();
 //    testRegisterAccess();
 //    testSramMirror();
-    testSram();
+//    testSram();
+    Serial.println(ntag.waitUntilNdefRead(5000));
 }
 
 void loop(){

@@ -4,7 +4,7 @@
 
 HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 
-Ntag::Ntag(DEVICE_TYPE dt): _dt(dt), _i2c_address(DEFAULT_I2C_ADDRESS)
+Ntag::Ntag(DEVICE_TYPE dt): _dt(dt), _i2c_address(DEFAULT_I2C_ADDRESS), _bSramMirrorMode(false)
 {
 }
 
@@ -45,16 +45,14 @@ bool Ntag::getSerialNumber(byte* sn){
 //Remark that the SRAM mirroring is only valid for the RF-interface.
 //For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area
 bool Ntag::setSramMirrorRf(bool bEnable){
-    //Mirror SRAM to bottom of USERMEM (avoid firmware change in NFC-reader)
+    //Mirror SRAM to bottom of USERMEM (avoids firmware change in NFC-reader)
     if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,0x01)){
         return false;
     }
     //disable pass-through mode
     //enable/disable SRAM memory mirror
-    if(!writeRegister(NC_REG, 0x42, bEnable ? 0x02 : 0x00)){
-        return false;
-    }
-    return true;
+    _bSramMirrorMode=bEnable;
+    return writeRegister(NC_REG, 0x42, bEnable ? 0x02 : 0x00);
 }
 
 bool Ntag::readSram(word address, byte *pdata, byte length)
@@ -77,54 +75,76 @@ bool Ntag::writeEeprom(word address, byte *pdata, byte length)
     return write(USERMEM, address+EEPROM_BASE_ADDR, pdata, length);
 }
 
+void Ntag::releaseI2c()
+{
+    //reset I2C_LOCKED bit
+    writeRegister(NS_REG,0x40,0);
+}
+
+void Ntag::debug(){
+    byte regVal;
+    if(readRegister(LAST_NDEF_BLOCK,regVal)){
+        Serial.print("Last NDEF block = ");
+        Serial.println(regVal, HEX);
+    }
+}
+
+bool Ntag::waitUntilNdefRead(word uiTimeout_ms){
+    unsigned long ulStartTime=millis();
+    byte regVal;
+
+    while(millis()<ulStartTime+uiTimeout_ms){
+        if(readRegister(NS_REG,regVal) && bitRead(regVal,7)){
+            return true;
+        }
+    }
+    return false;
+}
+
 bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
 {
     byte readbuffer[NTAG_BLOCK_SIZE];
     byte writeLength;
     byte* wptr=pdata;
+    byte blockNr=address/NTAG_BLOCK_SIZE;
 
-    writeLength=min(NTAG_BLOCK_SIZE, (address % NTAG_BLOCK_SIZE) + length);
     if(address % NTAG_BLOCK_SIZE !=0)
     {
         //start address doesn't point to start of block, so the bytes in this block that precede the address range must
         //be read.
-        if(!readBlock(bt, address/NTAG_BLOCK_SIZE, readbuffer, writeLength))
+        if(!readBlock(bt, blockNr, readbuffer, NTAG_BLOCK_SIZE))
         {
             return false;
         }
-        writeLength-=address % NTAG_BLOCK_SIZE;
+        writeLength=min(NTAG_BLOCK_SIZE - (address % NTAG_BLOCK_SIZE), length);
         memcpy(readbuffer + (address % NTAG_BLOCK_SIZE), pdata, writeLength);
-        if(!writeBlock(bt, address/NTAG_BLOCK_SIZE, readbuffer))
+        if(!writeBlock(bt, blockNr, readbuffer))
         {
             return false;
         }
         wptr+=writeLength;
+        blockNr++;
     }
-    else
-    {
-        if(!writeBlock(bt, address/NTAG_BLOCK_SIZE, wptr))
-        {
-            return false;
-        }
-        wptr+=NTAG_BLOCK_SIZE;
-    }
-    for(byte i=(address/NTAG_BLOCK_SIZE)+1;wptr<pdata+length;i++)
+    while(wptr < pdata+length)
     {
         writeLength=(pdata+length-wptr > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : pdata+length-wptr);
         if(writeLength!=NTAG_BLOCK_SIZE){
-            if(!readBlock(bt, i, readbuffer, NTAG_BLOCK_SIZE))
+            if(!readBlock(bt, blockNr, readbuffer, NTAG_BLOCK_SIZE))
             {
                 return false;
             }
             memcpy(readbuffer, wptr, writeLength);
         }
-        if(!writeBlock(bt, i, writeLength==NTAG_BLOCK_SIZE ? wptr : readbuffer))
+        if(!writeBlock(bt, blockNr, writeLength==NTAG_BLOCK_SIZE ? wptr : readbuffer))
         {
             return false;
         }
         wptr+=writeLength;
+        blockNr++;
     }
-    return true;
+    //When SRAM mirroring is used, the LAST_NDEF_BLOCK must point to USERMEM, not to SRAM
+    blockNr--;
+    return setLastNdefBlock(_bSramMirrorMode && bt==SRAM ? blockNr - ((SRAM_BASE_ADDR - EEPROM_BASE_ADDR)>>4) : blockNr);
 }
 
 bool Ntag::read(BLOCK_TYPE bt, word address, byte* pdata,  byte length)
@@ -173,6 +193,11 @@ bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte dat
     return i==data_size;
 }
 
+bool Ntag::setLastNdefBlock(byte memBlockAddress)
+{
+    return writeRegister(LAST_NDEF_BLOCK, 0xFF,memBlockAddress);
+}
+
 bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
 {
     if(!writeBlockAddress(bt, memBlockAddress)){
@@ -197,6 +222,8 @@ bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
         delay_us(500);//0.4 ms (SRAM - Pass-through mode) including all overhead
         break;
     }
+    //Debug
+    Serial.print("written block: ");Serial.println(memBlockAddress,HEX);
     return true;
 }
 
