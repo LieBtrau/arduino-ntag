@@ -19,8 +19,11 @@ public:
     // reset tag back to factory state
     boolean clean();
 private:
+    static const byte UID_LENGTH=7;
+    bool decodeTlv(byte *data, int &messageLength, int &messageStartIndex);
+    int getNdefStartIndex(byte *data);
     Ntag* _ntag;
-    byte uid[7];  // Buffer to store the returned UID
+    byte uid[UID_LENGTH];  // Buffer to store the returned UID
 };
 
 #endif // NTAGSRAMADAPTER_H

@@ -2,6 +2,7 @@
 #define HARDI2C
 #include <Wire.h>
 #include "ntag.h"
+#include "ntagsramadapter.h"
 
 Ntag ntag(Ntag::NTAG_I2C_1K);
 
@@ -21,6 +22,14 @@ void setup(){
 
 void loop(){
 
+}
+
+void testWriteAdapter(){
+    NdefMessage message = NdefMessage();
+    message.addUriRecord("http://www.google.be");
+    if(ntagAdapter.write(message)){
+        Serial.println("Message written to tag.");
+    }
 }
 
 void testSram(){
