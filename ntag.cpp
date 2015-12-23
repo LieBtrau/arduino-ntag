@@ -91,12 +91,19 @@ void Ntag::debug(){
 bool Ntag::waitUntilNdefRead(word uiTimeout_ms){
     unsigned long ulStartTime=millis();
     byte regVal;
+    const byte NDEF_DATA_READ_bit=7;
+    const byte RF_LOCKED_bit=6;
 
     while(millis()<ulStartTime+uiTimeout_ms){
-        if(readRegister(NS_REG,regVal) && bitRead(regVal,7)){
+        if(!readRegister(NS_REG,regVal)){
+            return false;
+        }
+        if(bitRead(regVal,NDEF_DATA_READ_bit) && (bitRead(regVal,RF_LOCKED_bit)==0)){
             return true;
         }
     }
+    Serial.print("NS_REG = ");
+    Serial.println(regVal, HEX);
     return false;
 }
 
@@ -141,7 +148,7 @@ bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
         wptr+=writeLength;
         blockNr++;
     }
-    _lastMemBlockWritten = blockNr--;
+    _lastMemBlockWritten = --blockNr;
     return true;
 }
 
