@@ -1,5 +1,10 @@
 #include "ntag.h"
+#ifdef ARDUINO_STM_NUCLEU_F103RB
 #include "HardWire.h"
+#else
+#include "Wire.h"
+#define HWire Wire
+#endif
 #include <stdio.h>
 
 HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
@@ -81,11 +86,6 @@ void Ntag::releaseI2c()
 }
 
 void Ntag::debug(){
-    byte regVal;
-    if(readRegister(LAST_NDEF_BLOCK,regVal)){
-        Serial.print("Last NDEF block = ");
-        Serial.println(regVal, HEX);
-    }
 }
 
 bool Ntag::waitUntilNdefRead(word uiTimeout_ms){
@@ -202,7 +202,7 @@ bool Ntag::setLastNdefBlock()
 {
     //When SRAM mirroring is used, the LAST_NDEF_BLOCK must point to USERMEM, not to SRAM
     return writeRegister(LAST_NDEF_BLOCK, 0xFF, isAddressValid(SRAM, _lastMemBlockWritten) ?
-        _lastMemBlockWritten - (SRAM_BASE_ADDR>>4) + _mirrorBaseBlockNr : _lastMemBlockWritten);
+                             _lastMemBlockWritten - (SRAM_BASE_ADDR>>4) + _mirrorBaseBlockNr : _lastMemBlockWritten);
 }
 
 bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
