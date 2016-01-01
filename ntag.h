@@ -19,12 +19,13 @@ public:
         I2C_CLOCK_STR,
         NS_REG
     }REGISTER_NR;
-    Ntag(DEVICE_TYPE dt);
-    Ntag(DEVICE_TYPE dt, byte i2c_address);
+    Ntag(DEVICE_TYPE dt, byte fd_pin, byte i2c_address = DEFAULT_I2C_ADDRESS);
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getSerialNumber(byte* sn);
+    byte getFdPin();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
+    bool setFd_ReaderHandshake();
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
     bool writeEeprom(word address, byte* pdata, byte length);//starts at address 0
     bool readSram(word address, byte* pdata, byte length);//starts at address 0
@@ -33,8 +34,6 @@ public:
     bool writeRegister(REGISTER_NR regAddr, byte mask, byte regdat);
     bool setLastNdefBlock();
     void releaseI2c();
-    bool waitUntilNdefRead(word uiTimeout_ms);
-    void debug();
 private:
     typedef enum{
         CONFIG=0x1,//BLOCK0 (putting this in a separate block type, because errors here can "brick" the device.)
@@ -42,10 +41,10 @@ private:
         REGISTER=0x4,//Settings registers
         SRAM=0x8
     }BLOCK_TYPE;
-    const byte DEFAULT_I2C_ADDRESS=0x55;
-    const byte NTAG_BLOCK_SIZE=16;
-    const word EEPROM_BASE_ADDR=0x1<<4;
-    const word SRAM_BASE_ADDR=0xF8<<4;
+    static const byte DEFAULT_I2C_ADDRESS=0x55;
+    static const byte NTAG_BLOCK_SIZE=16;
+    static const word EEPROM_BASE_ADDR=0x1<<4;
+    static const word SRAM_BASE_ADDR=0xF8<<4;
     bool write(BLOCK_TYPE bt, word address, byte* pdata, byte length);
     bool read(BLOCK_TYPE bt, word address, byte* pdata,  byte length);
     bool readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
@@ -56,6 +55,7 @@ private:
     bool setLastNdefBlock(byte memBlockAddress);
     byte _i2c_address;
     DEVICE_TYPE _dt;
+    byte _fd_pin;
     byte _lastMemBlockWritten;
     byte _mirrorBaseBlockNr;
 };

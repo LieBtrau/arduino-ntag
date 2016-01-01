@@ -11,6 +11,8 @@ void NtagSramAdapter::begin(bool verbose){
     _ntag->getSerialNumber(uid);
     //Mirror SRAM to bottom of USERMEM (avoids firmware change in NFC-reader)
     _ntag->setSramMirrorRf(true, 0x01);
+    //Set FD_pin to function as handshake signal
+    _ntag->setFd_ReaderHandshake();
 }
 
 bool NtagSramAdapter::write(NdefMessage& message){
@@ -30,10 +32,22 @@ NfcTag NtagSramAdapter::read(){
     int messageStartIndex = 0;
     int messageLength = 0;
     byte buffer[64];
+    unsigned long ulStartTime=millis();
+
+    //wait until FD is high
+    while(millis()<ulStartTime+10 && _ntag->getFdPin()==LOW);
+    if(_ntag->getFdPin()==LOW){
+        return NfcTag(uid,UID_LENGTH,"NOT READY");
+    }
 
     if(!_ntag->readSram(0,buffer,64)){
         return NfcTag(uid,UID_LENGTH,"ERROR");
     }
+//    for(int i=0;i<64;i++){
+//        Serial.print(buffer[i]);Serial.print(" ");
+//        if(i%8==0)Serial.println();
+//    }
+    Serial.println();
     if (!decodeTlv(buffer, messageLength, messageStartIndex)) {
         return NfcTag(uid, UID_LENGTH, "ERROR");
     }

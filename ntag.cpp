@@ -1,26 +1,28 @@
 #include "ntag.h"
 #ifdef ARDUINO_STM_NUCLEU_F103RB
 #include "HardWire.h"
+HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 #else
 #include "Wire.h"
 #define HWire Wire
 #endif
 #include <stdio.h>
 
-HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 
-Ntag::Ntag(DEVICE_TYPE dt): _dt(dt), _i2c_address(DEFAULT_I2C_ADDRESS), _lastMemBlockWritten(0)
-{
-}
-
-Ntag::Ntag(DEVICE_TYPE dt, byte i2c_address): _dt(dt), _i2c_address(i2c_address)
+Ntag::Ntag(DEVICE_TYPE dt, byte fd_pin, byte i2c_address): _dt(dt), _fd_pin(fd_pin), _i2c_address(i2c_address)
 {
 }
 
 bool Ntag::begin(){
     HWire.begin();
+#ifndef ARDUINO_SAM_DUE
     HWire.beginTransmission(_i2c_address);
     return HWire.endTransmission()==0;
+#else
+    //Arduino Due always sends at least 2 bytes for every I²C operation.  This upsets the NTAG.
+    return true;
+#endif
+    pinMode(_fd_pin, INPUT);
 }
 
 void Ntag::detectI2cDevices(){
@@ -46,14 +48,22 @@ bool Ntag::getSerialNumber(byte* sn){
     return true;
 }
 
-//Mirror SRAM to bottom of EEPROM
+bool Ntag::setFd_ReaderHandshake(){
+    return writeRegister(NC_REG, 0x3C,0x24);
+}
+
+byte Ntag::getFdPin(){
+    return digitalRead(_fd_pin);
+}
+
+//Mirror SRAM to EEPROM
 //Remark that the SRAM mirroring is only valid for the RF-interface.
 //For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area
 bool Ntag::setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr){
+    _mirrorBaseBlockNr = bEnable ? mirrorBaseBlockNr : 0;
     if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,mirrorBaseBlockNr)){
         return false;
     }
-    _mirrorBaseBlockNr = bEnable ? mirrorBaseBlockNr : 0;
     //disable pass-through mode
     //enable/disable SRAM memory mirror
     return writeRegister(NC_REG, 0x42, bEnable ? 0x02 : 0x00);
@@ -85,27 +95,7 @@ void Ntag::releaseI2c()
     writeRegister(NS_REG,0x40,0);
 }
 
-void Ntag::debug(){
-}
 
-bool Ntag::waitUntilNdefRead(word uiTimeout_ms){
-    unsigned long ulStartTime=millis();
-    byte regVal;
-    const byte NDEF_DATA_READ_bit=7;
-    const byte RF_LOCKED_bit=6;
-
-    while(millis()<ulStartTime+uiTimeout_ms){
-        if(!readRegister(NS_REG,regVal)){
-            return false;
-        }
-        if(bitRead(regVal,NDEF_DATA_READ_bit) && (bitRead(regVal,RF_LOCKED_bit)==0)){
-            return true;
-        }
-    }
-    Serial.print("NS_REG = ");
-    Serial.println(regVal, HEX);
-    return false;
-}
 
 bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
 {
@@ -226,7 +216,7 @@ bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
         break;
     case REGISTER:
     case SRAM:
-        delay_us(500);//0.4 ms (SRAM - Pass-through mode) including all overhead
+        delayMicroseconds(500);//0.4 ms (SRAM - Pass-through mode) including all overhead
         break;
     }
     //Debug

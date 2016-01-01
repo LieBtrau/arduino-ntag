@@ -1,10 +1,13 @@
+#include <SPI.h>
+#include <llcp.h>
+#include <NdefRecord.h>
+#include <ntagsramadapter.h>
 #include "Arduino.h"
 #define HARDI2C
 #include <Wire.h>
-#include "ntag.h"
-#include "ntagsramadapter.h"
 
 Ntag ntag(Ntag::NTAG_I2C_1K);
+NtagSramAdapter ntagAdapter(&ntag);
 
 void setup(){
     Serial.begin(115200);
@@ -12,11 +15,11 @@ void setup(){
     if(!ntag.begin()){
         Serial.println("Can't find ntag");
     }
-//    getSerialNumber();
-//    testUserMem();
-//    testRegisterAccess();
-//    testSramMirror();
-//    testSram();
+    //getSerialNumber();
+    //testUserMem();
+    //testRegisterAccess();
+    //testSramMirror();
+    //testSram();
     Serial.println(ntag.waitUntilNdefRead(5000));
 }
 
@@ -55,7 +58,7 @@ void testSramMirror(){
     byte readeeprom[16];
     byte data;
 
-    if(!ntag.setSramMirrorRf(false))return;
+    if(!ntag.setSramMirrorRf(false,1))return;
     Serial.println("\nReading memory block 1, no mirroring of SRAM");
     if(ntag.readEeprom(0,readeeprom,16)){
         showBlockInHex(readeeprom,16);
@@ -64,7 +67,7 @@ void testSramMirror(){
     if(ntag.readSram(0,readeeprom,16)){
         showBlockInHex(readeeprom,16);
     }
-    if(!ntag.setSramMirrorRf(true))return;
+    if(!ntag.setSramMirrorRf(true,1))return;
     Serial.print("NC_REG: ");
     if(ntag.readRegister(Ntag::NC_REG,data)){
         Serial.println(data, HEX);
@@ -84,8 +87,8 @@ void testRegisterAccess(){
 void getSerialNumber(){
     byte sn[7];
     Serial.println();
-    Serial.print("Serial number of the tag is: ");
     if(ntag.getSerialNumber(sn)){
+        Serial.print("Serial number of the tag is: ");
         for(byte i=0;i<7;i++){
             Serial.print(sn[i], HEX);
             Serial.print(" ");
