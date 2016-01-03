@@ -25,6 +25,7 @@ public:
     bool begin();
     bool getSerialNumber(byte* sn);
     bool fdRisingEdge();
+    bool rfBusy();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
     bool setFd_ReaderHandshake();
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0

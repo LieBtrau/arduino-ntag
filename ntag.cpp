@@ -62,6 +62,12 @@ bool Ntag::fdRisingEdge(){
     return _debouncer.rose();
 }
 
+bool Ntag::rfBusy(){
+    byte regVal;
+    readRegister(NS_REG, regVal);
+    return bitRead(regVal,5);
+}
+
 //Mirror SRAM to EEPROM
 //Remark that the SRAM mirroring is only valid for the RF-interface.
 //For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area

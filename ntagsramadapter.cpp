@@ -9,7 +9,9 @@ NtagSramAdapter::NtagSramAdapter(Ntag *ntag)
 void NtagSramAdapter::begin(bool verbose){
     _ntag->begin();
     _ntag->getSerialNumber(uid);
-    //Mirror SRAM to bottom of USERMEM (avoids firmware change in NFC-reader)
+    //Mirror SRAM to bottom of USERMEM
+    //  this avoids firmware change in NFC-reader library
+    //  the disadvantage is that the tag has to poll to over I²C to check if the memory is still locked to the RF-side.
     //Set FD_pin to function as handshake signal
     if((!_ntag->setSramMirrorRf(true, 0x01)) || (!_ntag->setFd_ReaderHandshake())){
         Serial.println("Can't initialize tag");
@@ -39,6 +41,10 @@ NfcTag NtagSramAdapter::read(){
     if(!_ntag->fdRisingEdge()){
         return NfcTag(uid,UID_LENGTH,"NOT READY");
     }
+//    if(_ntag->rfBusy()){
+//        return NfcTag(uid,UID_LENGTH,"NOT READY2");
+//    }
+    delay(150);
     if(!_ntag->readSram(0,buffer,64)){
         return NfcTag(uid,UID_LENGTH,"ERROR");
     }
