@@ -11,18 +11,23 @@ HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 
 Ntag::Ntag(DEVICE_TYPE dt, byte fd_pin, byte i2c_address): _dt(dt), _fd_pin(fd_pin), _i2c_address(i2c_address)
 {
+    _debouncer = Bounce();
 }
 
 bool Ntag::begin(){
+    bool bResult=true;
     HWire.begin();
 #ifndef ARDUINO_SAM_DUE
     HWire.beginTransmission(_i2c_address);
-    return HWire.endTransmission()==0;
+    bResult=HWire.endTransmission()==0;
 #else
     //Arduino Due always sends at least 2 bytes for every I²C operation.  This upsets the NTAG.
     return true;
 #endif
     pinMode(_fd_pin, INPUT);
+    _debouncer.attach(_fd_pin);
+    _debouncer.interval(5); // interval in ms
+    return bResult;
 }
 
 void Ntag::detectI2cDevices(){
@@ -49,11 +54,12 @@ bool Ntag::getSerialNumber(byte* sn){
 }
 
 bool Ntag::setFd_ReaderHandshake(){
-    return writeRegister(NC_REG, 0x3C,0x24);
+    return writeRegister(NC_REG, 0x3C,0x28);
 }
 
-byte Ntag::getFdPin(){
-    return digitalRead(_fd_pin);
+bool Ntag::fdRisingEdge(){
+    _debouncer.update();
+    return _debouncer.rose();
 }
 
 //Mirror SRAM to EEPROM
@@ -94,8 +100,6 @@ void Ntag::releaseI2c()
     //reset I2C_LOCKED bit
     writeRegister(NS_REG,0x40,0);
 }
-
-
 
 bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
 {

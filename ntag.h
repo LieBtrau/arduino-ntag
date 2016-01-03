@@ -2,6 +2,7 @@
 #define NTAG_H
 
 #include "Arduino.h"
+#include <Bounce2.h>
 
 class Ntag
 {
@@ -23,7 +24,7 @@ public:
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getSerialNumber(byte* sn);
-    byte getFdPin();
+    bool fdRisingEdge();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
     bool setFd_ReaderHandshake();
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
@@ -58,6 +59,7 @@ private:
     byte _fd_pin;
     byte _lastMemBlockWritten;
     byte _mirrorBaseBlockNr;
+    Bounce _debouncer;
 };
 
 #endif // NTAG_H

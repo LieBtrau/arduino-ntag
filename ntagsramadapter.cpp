@@ -10,9 +10,10 @@ void NtagSramAdapter::begin(bool verbose){
     _ntag->begin();
     _ntag->getSerialNumber(uid);
     //Mirror SRAM to bottom of USERMEM (avoids firmware change in NFC-reader)
-    _ntag->setSramMirrorRf(true, 0x01);
     //Set FD_pin to function as handshake signal
-    _ntag->setFd_ReaderHandshake();
+    if((!_ntag->setSramMirrorRf(true, 0x01)) || (!_ntag->setFd_ReaderHandshake())){
+        Serial.println("Can't initialize tag");
+    }
 }
 
 bool NtagSramAdapter::write(NdefMessage& message){
@@ -26,20 +27,18 @@ bool NtagSramAdapter::write(NdefMessage& message){
     buffer[2+sizeof(encoded)] = 0xFE; // terminator
     _ntag->writeSram(0,buffer,3 + sizeof(encoded));
     _ntag->setLastNdefBlock();
+    _ntag->releaseI2c();
 }
 
 NfcTag NtagSramAdapter::read(){
     int messageStartIndex = 0;
     int messageLength = 0;
     byte buffer[64];
-    unsigned long ulStartTime=millis();
 
     //wait until FD is high
-    while(millis()<ulStartTime+10 && _ntag->getFdPin()==LOW);
-    if(_ntag->getFdPin()==LOW){
+    if(!_ntag->fdRisingEdge()){
         return NfcTag(uid,UID_LENGTH,"NOT READY");
     }
-
     if(!_ntag->readSram(0,buffer,64)){
         return NfcTag(uid,UID_LENGTH,"ERROR");
     }
