@@ -8,7 +8,7 @@ NtagSramAdapter::NtagSramAdapter(Ntag *ntag)
 
 void NtagSramAdapter::begin(bool verbose){
     _ntag->begin();
-    _ntag->getSerialNumber(uid);
+    _ntag->getUid(uid, sizeof(uid));
     //Mirror SRAM to bottom of USERMEM
     //  this avoids firmware change in NFC-reader library
     //  the disadvantage is that the tag has to poll to over I²C to check if the memory is still locked to the RF-side.
@@ -32,19 +32,19 @@ bool NtagSramAdapter::write(NdefMessage& message){
     _ntag->releaseI2c();
 }
 
+bool NtagSramAdapter::rfReadingDone(){
+    //wait until FD is high, indicating that RF-reading is done
+    return _ntag->fdRisingEdge();
+}
+
 NfcTag NtagSramAdapter::read(){
     int messageStartIndex = 0;
     int messageLength = 0;
     byte buffer[64];
 
-    //wait until FD is high
-    if(!_ntag->fdRisingEdge()){
-        return NfcTag(uid,UID_LENGTH,"NOT READY");
-    }
 //    if(_ntag->rfBusy()){
 //        return NfcTag(uid,UID_LENGTH,"NOT READY2");
 //    }
-    delay(150);
     if(!_ntag->readSram(0,buffer,64)){
         return NfcTag(uid,UID_LENGTH,"ERROR");
     }
@@ -108,5 +108,16 @@ int NtagSramAdapter::getNdefStartIndex(byte *data)
     }
 
     return -1;
+}
+
+byte NtagSramAdapter::getUidLength()
+{
+    return UID_LENGTH;
+}
+
+bool NtagSramAdapter::getUid(byte *uidin, unsigned int uidLength)
+{
+    memcpy(uidin, uid, UID_LENGTH < uidLength ? UID_LENGTH : uidLength);
+    return true;
 }
 

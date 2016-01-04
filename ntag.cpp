@@ -41,17 +41,26 @@ void Ntag::detectI2cDevices(){
     }
 }
 
-bool Ntag::getSerialNumber(byte* sn){
-    byte data[7];
-    if(!readBlock(CONFIG, 0,data,7)){
+byte Ntag::getUidLength()
+{
+    return UID_LENGTH;
+}
+
+bool Ntag::getUid(byte *uid, unsigned int uidLength)
+{
+    byte data[UID_LENGTH];
+    if(!readBlock(CONFIG, 0,data,UID_LENGTH))
+    {
         return false;
     }
-    if(data[0]!=4){
+    if(data[0]!=4)
+    {
         return false;
     }
-    memcpy(sn, data,7);
+    memcpy(uid, data, UID_LENGTH < uidLength ? UID_LENGTH : uidLength);
     return true;
 }
+
 
 bool Ntag::setFd_ReaderHandshake(){
     return writeRegister(NC_REG, 0x3C,0x28);

@@ -23,7 +23,8 @@ public:
     Ntag(DEVICE_TYPE dt, byte fd_pin, byte i2c_address = DEFAULT_I2C_ADDRESS);
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
-    bool getSerialNumber(byte* sn);
+    bool getUid(byte *uid, unsigned int uidLength);
+    byte getUidLength();
     bool fdRisingEdge();
     bool rfBusy();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
@@ -43,6 +44,7 @@ private:
         REGISTER=0x4,//Settings registers
         SRAM=0x8
     }BLOCK_TYPE;
+    static const byte UID_LENGTH=7;
     static const byte DEFAULT_I2C_ADDRESS=0x55;
     static const byte NTAG_BLOCK_SIZE=16;
     static const word EEPROM_BASE_ADDR=0x1<<4;
