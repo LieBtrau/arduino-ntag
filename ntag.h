@@ -20,13 +20,13 @@ public:
         I2C_CLOCK_STR,
         NS_REG
     }REGISTER_NR;
-    Ntag(DEVICE_TYPE dt, byte fd_pin, byte i2c_address = DEFAULT_I2C_ADDRESS);
+    Ntag(DEVICE_TYPE dt, byte fd_pin, byte vout_pin, byte i2c_address = DEFAULT_I2C_ADDRESS);
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getUid(byte *uid, unsigned int uidLength);
     byte getUidLength();
-    bool fdRisingEdge();
     bool rfBusy();
+    bool readerPresent();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
     bool setFd_ReaderHandshake();
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
@@ -60,9 +60,11 @@ private:
     byte _i2c_address;
     DEVICE_TYPE _dt;
     byte _fd_pin;
+    byte _vout_pin;
     byte _lastMemBlockWritten;
     byte _mirrorBaseBlockNr;
     Bounce _debouncer;
+    unsigned long _rfBusyStartTime;
 };
 
 #endif // NTAG_H

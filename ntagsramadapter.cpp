@@ -18,9 +18,16 @@ void NtagSramAdapter::begin(bool verbose){
     }
 }
 
-bool NtagSramAdapter::write(NdefMessage& message){
+bool NtagSramAdapter::write(NdefMessage& message, uint uiTimeout){
+    if(!waitUntilRfDone(uiTimeout))
+    {
+        return false;
+    }
     byte encoded[message.getEncodedSize()];
     message.encode(encoded);
+    if(3 + sizeof(encoded) > SRAM_SIZE){
+        return false;
+    }
     byte buffer[3 + sizeof(encoded)];
     memset(buffer, 0, sizeof(buffer));
     buffer[0] = 0x3;
@@ -30,34 +37,70 @@ bool NtagSramAdapter::write(NdefMessage& message){
     _ntag->writeSram(0,buffer,3 + sizeof(encoded));
     _ntag->setLastNdefBlock();
     _ntag->releaseI2c();
+//    for(int i=0;i<sizeof(buffer);i++){
+//        Serial.print(buffer[i], HEX);Serial.print(" ");
+//        if((i+1)%8==0)Serial.println();
+//    }
 }
 
-bool NtagSramAdapter::rfReadingDone(){
+bool NtagSramAdapter::rfBusy(){
     //wait until FD is high, indicating that RF-reading is done
-    return _ntag->fdRisingEdge();
+    return _ntag->rfBusy();
 }
 
-NfcTag NtagSramAdapter::read(){
+bool NtagSramAdapter::readerPresent(unsigned long timeout)
+{
+    unsigned long startTime=millis();
+    do
+    {
+        if(_ntag->readerPresent())
+        {
+            return true;
+        }
+    }while(millis()<startTime+timeout);
+
+    return false;
+}
+
+
+NfcTag NtagSramAdapter::read(uint uiTimeOut){
     int messageStartIndex = 0;
     int messageLength = 0;
-    byte buffer[64];
+    byte buffer[SRAM_SIZE];
 
-//    if(_ntag->rfBusy()){
-//        return NfcTag(uid,UID_LENGTH,"NOT READY2");
-//    }
-    if(!_ntag->readSram(0,buffer,64)){
+    if(!waitUntilRfDone(uiTimeOut)){
+        return NfcTag(uid,UID_LENGTH,"NOT READY2");
+    }
+    if(!_ntag->readSram(0,buffer,SRAM_SIZE)){
         return NfcTag(uid,UID_LENGTH,"ERROR");
     }
-//    for(int i=0;i<64;i++){
-//        Serial.print(buffer[i]);Serial.print(" ");
-//        if(i%8==0)Serial.println();
+//    for(int i=0;i<SRAM_SIZE;i++){
+//        Serial.print(buffer[i], HEX);Serial.print(" ");
+//        if((i+1)%8==0)Serial.println();
 //    }
-    Serial.println();
+//    Serial.println();
     if (!decodeTlv(buffer, messageLength, messageStartIndex)) {
         return NfcTag(uid, UID_LENGTH, "ERROR");
     }
     return NfcTag(uid, UID_LENGTH, "NTAG", &buffer[messageStartIndex], messageLength);
 }
+
+bool NtagSramAdapter::waitUntilRfDone(uint uiTimeOut)
+{
+    if(uiTimeOut>0)
+    {
+        unsigned long ulStartTime=millis();
+        while(millis() < ulStartTime+uiTimeOut)
+        {
+            if(!_ntag->rfBusy())
+            {
+                return true;
+            }
+        }
+    }
+    return !_ntag->rfBusy();
+}
+
 
 // Decode the NDEF data length from the Mifare TLV
 // Leading null TLVs (0x0) are skipped

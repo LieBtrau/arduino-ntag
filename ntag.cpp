@@ -9,7 +9,12 @@ HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 #include <stdio.h>
 
 
-Ntag::Ntag(DEVICE_TYPE dt, byte fd_pin, byte i2c_address): _dt(dt), _fd_pin(fd_pin), _i2c_address(i2c_address)
+Ntag::Ntag(DEVICE_TYPE dt, byte fd_pin, byte vout_pin, byte i2c_address):
+    _dt(dt),
+    _fd_pin(fd_pin),
+    _vout_pin(vout_pin),
+    _i2c_address(i2c_address),
+    _rfBusyStartTime(0)
 {
     _debouncer = Bounce();
 }
@@ -24,10 +29,22 @@ bool Ntag::begin(){
     //Arduino Due always sends at least 2 bytes for every I²C operation.  This upsets the NTAG.
     return true;
 #endif
+    if(_vout_pin!=0){
+        pinMode(_vout_pin, INPUT);
+    }
     pinMode(_fd_pin, INPUT);
     _debouncer.attach(_fd_pin);
     _debouncer.interval(5); // interval in ms
     return bResult;
+}
+
+bool Ntag::readerPresent()
+{
+    if(_vout_pin==0)
+    {
+        return false;
+    }
+    return digitalRead(_vout_pin)==HIGH;
 }
 
 void Ntag::detectI2cDevices(){
@@ -63,18 +80,40 @@ bool Ntag::getUid(byte *uid, unsigned int uidLength)
 
 
 bool Ntag::setFd_ReaderHandshake(){
+    //return writeRegister(NC_REG, 0x3C,0x18);
     return writeRegister(NC_REG, 0x3C,0x28);
+    //0x28: FD_OFF=10b, FD_ON=10b : FD constant low
+    //Start of read by reader always clears the FD-pin.
+    //At the end of the read by reader, the FD-pin becomes high (most of the times)
+    //0x18: FD pulse high (13.9ms wide) at the beginning of the read sequence, no effect on write sequence.
+    //0x14: FD_OFF=01b, FD_ON=01b : FD constant high
+    //0x24: FD constant high
 }
 
-bool Ntag::fdRisingEdge(){
-    _debouncer.update();
-    return _debouncer.rose();
-}
 
 bool Ntag::rfBusy(){
     byte regVal;
-    readRegister(NS_REG, regVal);
-    return bitRead(regVal,5);
+    _debouncer.update();
+    //Reading this register clears the FD-pin.
+    //When continuously polling this register during read or write, a spike wave is returned with a high pulse width
+    //of 2ms and a low pulse width of 9ms.
+    //To get a nice clean pulse instead of spikes, a retriggerable monostable that triggers on rfBusy will be used.
+    if(!readRegister(NS_REG, regVal))
+    {
+        Serial.println("Can't read register.");
+    }
+    if(bitRead(regVal,5) || _debouncer.rose())
+    {
+        //retrigger monostable
+        _rfBusyStartTime=millis();
+        return true;
+    }
+    if(millis()<_rfBusyStartTime+30)
+    {
+        //a zero has been read, but monostable hasn't run out yet
+        return true;
+    }
+    return false;
 }
 
 //Mirror SRAM to EEPROM
@@ -238,8 +277,6 @@ bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
         delayMicroseconds(500);//0.4 ms (SRAM - Pass-through mode) including all overhead
         break;
     }
-    //Debug
-    Serial.print("written block: ");Serial.println(memBlockAddress,HEX);
     return true;
 }
 
