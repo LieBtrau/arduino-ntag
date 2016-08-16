@@ -8,11 +8,11 @@ class NtagSramAdapter
 {
 public:
     NtagSramAdapter(Ntag* ntag);
-    void begin(boolean verbose=true);
+    bool begin();
     boolean readerPresent(unsigned long timeout=0);
-    NfcTag read(uint uiTimeOut=0);
+    NfcTag read(unsigned int uiTimeOut=0);
     bool rfBusy();
-    bool write(NdefMessage& message, uint uiTimeout=0);
+    bool write(NdefMessage& message, unsigned int uiTimeout=0);
     // erase tag by writing an empty NDEF record
     boolean erase();
     // format a tag as NDEF
@@ -25,7 +25,7 @@ private:
     static const byte SRAM_SIZE=64;
     static const byte UID_LENGTH=7;
     bool decodeTlv(byte *data, int &messageLength, int &messageStartIndex);
-    bool waitUntilRfDone(uint uiTimeOut);
+    bool waitUntilRfDone(unsigned int uiTimeOut);
     int getNdefStartIndex(byte *data);
     Ntag* _ntag;
     byte uid[UID_LENGTH];  // Buffer to store the returned UID

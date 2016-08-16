@@ -6,19 +6,21 @@ NtagSramAdapter::NtagSramAdapter(Ntag *ntag)
     _ntag=ntag;
 }
 
-void NtagSramAdapter::begin(bool verbose){
+bool NtagSramAdapter::begin(){
     _ntag->begin();
     _ntag->getUid(uid, sizeof(uid));
     //Mirror SRAM to bottom of USERMEM
-    //  this avoids firmware change in NFC-reader library
+    //  the reader will read SRAM instead of EEPROM
     //  the disadvantage is that the tag has to poll to over I²C to check if the memory is still locked to the RF-side.
     //Set FD_pin to function as handshake signal
     if((!_ntag->setSramMirrorRf(true, 0x01)) || (!_ntag->setFd_ReaderHandshake())){
         Serial.println("Can't initialize tag");
+        return false;
     }
+    return true;
 }
 
-bool NtagSramAdapter::write(NdefMessage& message, uint uiTimeout){
+bool NtagSramAdapter::write(NdefMessage& message, unsigned int uiTimeout){
     if(!waitUntilRfDone(uiTimeout))
     {
         return false;
@@ -43,17 +45,12 @@ bool NtagSramAdapter::write(NdefMessage& message, uint uiTimeout){
 //    }
 }
 
-bool NtagSramAdapter::rfBusy(){
-    //wait until FD is high, indicating that RF-reading is done
-    return _ntag->rfBusy();
-}
-
 bool NtagSramAdapter::readerPresent(unsigned long timeout)
 {
     unsigned long startTime=millis();
     do
     {
-        if(_ntag->readerPresent())
+        if(_ntag->isReaderPresent())
         {
             return true;
         }
@@ -63,7 +60,7 @@ bool NtagSramAdapter::readerPresent(unsigned long timeout)
 }
 
 
-NfcTag NtagSramAdapter::read(uint uiTimeOut){
+NfcTag NtagSramAdapter::read(unsigned int uiTimeOut){
     int messageStartIndex = 0;
     int messageLength = 0;
     byte buffer[SRAM_SIZE];
@@ -85,20 +82,25 @@ NfcTag NtagSramAdapter::read(uint uiTimeOut){
     return NfcTag(uid, UID_LENGTH, "NTAG", &buffer[messageStartIndex], messageLength);
 }
 
-bool NtagSramAdapter::waitUntilRfDone(uint uiTimeOut)
+//wait until FD is high, indicating that RF-reading is done
+bool NtagSramAdapter::waitUntilRfDone(unsigned int uiTimeOut)
 {
     if(uiTimeOut>0)
     {
         unsigned long ulStartTime=millis();
         while(millis() < ulStartTime+uiTimeOut)
         {
-            if(!_ntag->rfBusy())
+            if(!(_ntag->isRfBusy()))
             {
                 return true;
             }
         }
     }
-    return !_ntag->rfBusy();
+    return !(_ntag->isRfBusy());
+}
+
+bool NtagSramAdapter::rfBusy(){
+    return _ntag->isRfBusy();
 }
 
 

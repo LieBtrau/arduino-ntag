@@ -6,7 +6,7 @@
 #define HARDI2C
 #include <Wire.h>
 
-Ntag ntag(Ntag::NTAG_I2C_1K);
+Ntag ntag(Ntag::NTAG_I2C_1K,7,9);
 NtagSramAdapter ntagAdapter(&ntag);
 
 void setup(){
@@ -15,12 +15,11 @@ void setup(){
     if(!ntag.begin()){
         Serial.println("Can't find ntag");
     }
-    //getSerialNumber();
-    //testUserMem();
-    //testRegisterAccess();
-    //testSramMirror();
-    //testSram();
-    Serial.println(ntag.waitUntilNdefRead(5000));
+    getSerialNumber();
+    testUserMem();
+    testRegisterAccess();
+    testSramMirror();
+    testSram();
 }
 
 void loop(){
@@ -85,16 +84,19 @@ void testRegisterAccess(){
 }
 
 void getSerialNumber(){
-    byte sn[7];
+    byte* sn=(byte*)malloc(ntag.getUidLength());
     Serial.println();
-    if(ntag.getSerialNumber(sn)){
+    if(ntag.getUid(sn,7))
+    {
         Serial.print("Serial number of the tag is: ");
-        for(byte i=0;i<7;i++){
+        for(byte i=0;i<ntag.getUidLength();i++)
+        {
             Serial.print(sn[i], HEX);
             Serial.print(" ");
         }
     }
     Serial.println();
+    free(sn);
 }
 
 void testUserMem(){

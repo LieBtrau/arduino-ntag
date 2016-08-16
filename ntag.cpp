@@ -14,7 +14,8 @@ Ntag::Ntag(DEVICE_TYPE dt, byte fd_pin, byte vout_pin, byte i2c_address):
     _fd_pin(fd_pin),
     _vout_pin(vout_pin),
     _i2c_address(i2c_address),
-    _rfBusyStartTime(0)
+    _rfBusyStartTime(0),
+    _triggered(false)
 {
     _debouncer = Bounce();
 }
@@ -38,7 +39,7 @@ bool Ntag::begin(){
     return bResult;
 }
 
-bool Ntag::readerPresent()
+bool Ntag::isReaderPresent()
 {
     if(_vout_pin==0)
     {
@@ -91,13 +92,13 @@ bool Ntag::setFd_ReaderHandshake(){
 }
 
 
-bool Ntag::rfBusy(){
+bool Ntag::isRfBusy(){
     byte regVal;
     _debouncer.update();
     //Reading this register clears the FD-pin.
-    //When continuously polling this register during read or write, a spike wave is returned with a high pulse width
-    //of 2ms and a low pulse width of 9ms.
-    //To get a nice clean pulse instead of spikes, a retriggerable monostable that triggers on rfBusy will be used.
+    //When continuously polling this register while RF reading or writing is ongoing, high will be returned for 2ms, followed
+    //by low for 9ms, then high again for 2ms then low again for 9ms and so on.
+    //To get a nice clean high or low instead of spikes, a software retriggerable monostable that triggers on rfBusy will be used.
     if(!readRegister(NS_REG, regVal))
     {
         Serial.println("Can't read register.");
@@ -106,9 +107,10 @@ bool Ntag::rfBusy(){
     {
         //retrigger monostable
         _rfBusyStartTime=millis();
+        _triggered=true;
         return true;
     }
-    if(millis()<_rfBusyStartTime+30)
+    if(_triggered && millis()<_rfBusyStartTime+30)
     {
         //a zero has been read, but monostable hasn't run out yet
         return true;

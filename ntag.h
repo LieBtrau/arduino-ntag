@@ -25,8 +25,8 @@ public:
     bool begin();
     bool getUid(byte *uid, unsigned int uidLength);
     byte getUidLength();
-    bool rfBusy();
-    bool readerPresent();
+    bool isRfBusy();
+    bool isReaderPresent();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
     bool setFd_ReaderHandshake();
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
@@ -65,6 +65,7 @@ private:
     byte _mirrorBaseBlockNr;
     Bounce _debouncer;
     unsigned long _rfBusyStartTime;
+    bool _triggered;
 };
 
 #endif // NTAG_H
