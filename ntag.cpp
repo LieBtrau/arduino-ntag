@@ -91,9 +91,9 @@ bool Ntag::setFd_ReaderHandshake(){
     //0x24: FD constant high
 }
 
-
 bool Ntag::isRfBusy(){
     byte regVal;
+    const byte RF_LOCKED=5;
     _debouncer.update();
     //Reading this register clears the FD-pin.
     //When continuously polling this register while RF reading or writing is ongoing, high will be returned for 2ms, followed
@@ -103,7 +103,7 @@ bool Ntag::isRfBusy(){
     {
         Serial.println("Can't read register.");
     }
-    if(bitRead(regVal,5) || _debouncer.rose())
+    if(bitRead(regVal,RF_LOCKED) || _debouncer.rose())
     {
         //retrigger monostable
         _rfBusyStartTime=millis();
@@ -120,13 +120,13 @@ bool Ntag::isRfBusy(){
 
 //Mirror SRAM to EEPROM
 //Remark that the SRAM mirroring is only valid for the RF-interface.
-//For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area
+//For the I²C-interface, you still have to use blocks 0xF8 and higher to access SRAM area (see datasheet Table 6)
 bool Ntag::setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr){
     _mirrorBaseBlockNr = bEnable ? mirrorBaseBlockNr : 0;
     if(!writeRegister(SRAM_MIRROR_BLOCK,0xFF,mirrorBaseBlockNr)){
         return false;
     }
-    //disable pass-through mode
+    //disable pass-through mode (because it's not compatible with SRAM⁻mirroring: datasheet §11.2).
     //enable/disable SRAM memory mirror
     return writeRegister(NC_REG, 0x42, bEnable ? 0x02 : 0x00);
 }

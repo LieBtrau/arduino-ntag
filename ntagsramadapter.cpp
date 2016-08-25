@@ -10,7 +10,8 @@ bool NtagSramAdapter::begin(){
     _ntag->begin();
     _ntag->getUid(uid, sizeof(uid));
     //Mirror SRAM to bottom of USERMEM
-    //  the reader will read SRAM instead of EEPROM
+    //  the PN532 reader will read SRAM instead of EEPROM
+    //  the advantage is that the same driver code for the PN532 reader can be used as for reading RFID-cards.
     //  the disadvantage is that the tag has to poll to over I²C to check if the memory is still locked to the RF-side.
     //Set FD_pin to function as handshake signal
     if((!_ntag->setSramMirrorRf(true, 0x01)) || (!_ntag->setFd_ReaderHandshake())){
@@ -71,6 +72,7 @@ NfcTag NtagSramAdapter::read(unsigned int uiTimeOut){
     if(!_ntag->readSram(0,buffer,SRAM_SIZE)){
         return NfcTag(uid,UID_LENGTH,"ERROR");
     }
+    _ntag->releaseI2c();
 //    for(int i=0;i<SRAM_SIZE;i++){
 //        Serial.print(buffer[i], HEX);Serial.print(" ");
 //        if((i+1)%8==0)Serial.println();
@@ -82,7 +84,6 @@ NfcTag NtagSramAdapter::read(unsigned int uiTimeOut){
     return NfcTag(uid, UID_LENGTH, "NTAG", &buffer[messageStartIndex], messageLength);
 }
 
-//wait until FD is high, indicating that RF-reading is done
 bool NtagSramAdapter::waitUntilRfDone(unsigned int uiTimeOut)
 {
     if(uiTimeOut>0)
