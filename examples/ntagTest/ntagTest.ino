@@ -1,6 +1,3 @@
-#include <SPI.h>
-#include <llcp.h>
-#include <NdefRecord.h>
 #include <ntagsramadapter.h>
 #include "Arduino.h"
 #define HARDI2C
