@@ -1,0 +1,6 @@
+[submodule "NDEF"]
+	path = NDEF
+	url = https://github.com/LieBtrau/NDEF
+[submodule "Bounce2"]
+	path = Bounce2
+	url = git@github.com:thomasfredericks/Bounce2.git
