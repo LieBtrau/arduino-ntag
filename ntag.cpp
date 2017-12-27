@@ -1,9 +1,10 @@
 #include "ntag.h"
-#ifdef ARDUINO_STM_NUCLEU_F103RB
-#include "HardWire.h"
+#include "Wire.h"
+#ifdef ARDUINO_STM_NUCLEO_F103RB
+//SCL = SCL/D15
+//SDA = SDA/D14
 HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 #else
-#include "Wire.h"
 #define HWire Wire
 #endif
 #include <stdio.h>
@@ -78,6 +79,22 @@ bool Ntag::getUid(byte *uid, unsigned int uidLength)
     memcpy(uid, data, UID_LENGTH < uidLength ? UID_LENGTH : uidLength);
     return true;
 }
+
+bool Ntag::getCapabilityContainer(byte* container)
+{
+    if(!container)
+    {
+        return false;
+    }
+    byte data[16];
+    if(!readBlock(CONFIG, 0,data,16))
+    {
+        return false;
+    }
+    memcpy(container, data+12, 4);
+    return true;
+}
+
 
 
 bool Ntag::setFd_ReaderHandshake(){
@@ -157,14 +174,14 @@ void Ntag::releaseI2c()
     writeRegister(NS_REG,0x40,0);
 }
 
-bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
+bool Ntag::write(BLOCK_TYPE bt, word byteAddress, byte* pdata, byte length)
 {
     byte readbuffer[NTAG_BLOCK_SIZE];
     byte writeLength;
     byte* wptr=pdata;
-    byte blockNr=address/NTAG_BLOCK_SIZE;
+    byte blockNr=byteAddress/NTAG_BLOCK_SIZE;
 
-    if(address % NTAG_BLOCK_SIZE !=0)
+    if(byteAddress % NTAG_BLOCK_SIZE !=0)
     {
         //start address doesn't point to start of block, so the bytes in this block that precede the address range must
         //be read.
@@ -172,8 +189,8 @@ bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
         {
             return false;
         }
-        writeLength=min(NTAG_BLOCK_SIZE - (address % NTAG_BLOCK_SIZE), length);
-        memcpy(readbuffer + (address % NTAG_BLOCK_SIZE), pdata, writeLength);
+        writeLength=min(NTAG_BLOCK_SIZE - (byteAddress % NTAG_BLOCK_SIZE), length);
+        memcpy(readbuffer + (byteAddress % NTAG_BLOCK_SIZE), pdata, writeLength);
         if(!writeBlock(bt, blockNr, readbuffer))
         {
             return false;
@@ -202,21 +219,21 @@ bool Ntag::write(BLOCK_TYPE bt, word address, byte* pdata, byte length)
     return true;
 }
 
-bool Ntag::read(BLOCK_TYPE bt, word address, byte* pdata,  byte length)
+bool Ntag::read(BLOCK_TYPE bt, word byteAddress, byte* pdata,  byte length)
 {
     byte readbuffer[NTAG_BLOCK_SIZE];
     byte readLength;
     byte* wptr=pdata;
 
-    readLength=min(NTAG_BLOCK_SIZE, (address % NTAG_BLOCK_SIZE) + length);
-    if(!readBlock(bt, address/NTAG_BLOCK_SIZE, readbuffer, readLength))
+    readLength=min(NTAG_BLOCK_SIZE, (byteAddress % NTAG_BLOCK_SIZE) + length);
+    if(!readBlock(bt, byteAddress/NTAG_BLOCK_SIZE, readbuffer, readLength))
     {
         return false;
     }
-    readLength-=address % NTAG_BLOCK_SIZE;
-    memcpy(wptr,readbuffer + (address % NTAG_BLOCK_SIZE), readLength);
+    readLength-=byteAddress % NTAG_BLOCK_SIZE;
+    memcpy(wptr,readbuffer + (byteAddress % NTAG_BLOCK_SIZE), readLength);
     wptr+=readLength;
-    for(byte i=(address/NTAG_BLOCK_SIZE)+1;wptr<pdata+length;i++)
+    for(byte i=(byteAddress/NTAG_BLOCK_SIZE)+1;wptr<pdata+length;i++)
     {
         readLength=(pdata+length-wptr > NTAG_BLOCK_SIZE ? NTAG_BLOCK_SIZE : pdata+length-wptr);
         if(!readBlock(bt, i, wptr, readLength))
@@ -262,9 +279,7 @@ bool Ntag::writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data)
     }
     for (int i=0; i<NTAG_BLOCK_SIZE; i++)
     {
-        if(HWire.write(p_data[i])!=1){
-            break;
-        }
+	HWire.write(p_data[i]);
     }
     if(!end_transmission()){
         return false;
@@ -289,9 +304,7 @@ bool Ntag::readRegister(REGISTER_NR regAddr, byte& value)
     if(regAddr>6 || !writeBlockAddress(REGISTER, 0xFE)){
         return false;
     }
-    if(HWire.write(regAddr)!=1){
-        bRetVal=false;
-    }
+    HWire.write(regAddr);
     if(!end_transmission()){
         return false;
     }
@@ -305,16 +318,13 @@ bool Ntag::readRegister(REGISTER_NR regAddr, byte& value)
 
 bool Ntag::writeRegister(REGISTER_NR regAddr, byte mask, byte regdat)
 {
-    bool bRetVal=false;
     if(regAddr>7 || !writeBlockAddress(REGISTER, 0xFE)){
         return false;
     }
-    if (HWire.write(regAddr)==1 &&
-            HWire.write(mask)==1 &&
-            HWire.write(regdat)==1){
-        bRetVal=true;
-    }
-    return end_transmission() && bRetVal;
+    HWire.write(regAddr);
+    HWire.write(mask);
+    HWire.write(regdat);
+    return end_transmission();
 }
 
 bool Ntag::writeBlockAddress(BLOCK_TYPE dt, byte addr)
@@ -323,7 +333,8 @@ bool Ntag::writeBlockAddress(BLOCK_TYPE dt, byte addr)
         return false;
     }
     HWire.beginTransmission(_i2c_address);
-    return HWire.write(addr)==1;
+    HWire.write(addr);
+    return true;
 }
 
 bool Ntag::end_transmission(void)

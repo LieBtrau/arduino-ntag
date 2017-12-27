@@ -1,0 +1,15 @@
+../ntagsramadapter.cpp
+../ntag.cpp
+../ntag.h
+../ntagsramadapter.h
+../ntagadapter.h
+../ntagadapter.cpp
+../ntageepromadapter.h
+../ntageepromadapter.cpp
+../examples/ntagTest/ntagTest.ino
+../examples/WriteTag/WriteTag.ino
+../examples/ReadTag/ReadTag.ino
+../examples/ReadTagExtended/ReadTagExtended.ino
+../examples/WriteTagMultipleRecords/WriteTagMultipleRecords.ino
+../examples/EraseTag/EraseTag.ino
+../examples/CleanTag/CleanTag.ino

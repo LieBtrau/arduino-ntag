@@ -1,0 +1,9 @@
+../
+../examples/ntagTest
+../examples/WriteTag
+../examples/ReadTag
+../examples/ReadTagExtended
+../examples/WriteTagMultipleRecords
+../examples/FormatTag
+../examples/EraseTag
+../examples/CleanTag

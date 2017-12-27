@@ -1,14 +1,13 @@
 #include "ntagsramadapter.h"
 #include "Ndef.h"
 
-NtagSramAdapter::NtagSramAdapter(Ntag *ntag)
+NtagSramAdapter::NtagSramAdapter(Ntag* ntag)
 {
     _ntag=ntag;
 }
 
 bool NtagSramAdapter::begin(){
-    _ntag->begin();
-    _ntag->getUid(uid, sizeof(uid));
+    NtagAdapter::begin();
     //Mirror SRAM to bottom of USERMEM
     //  the PN532 reader will read SRAM instead of EEPROM
     //  the advantage is that the same driver code for the PN532 reader can be used as for reading RFID-cards.
@@ -33,7 +32,7 @@ bool NtagSramAdapter::write(NdefMessage& message, unsigned int uiTimeout){
     }
     byte buffer[3 + sizeof(encoded)];
     memset(buffer, 0, sizeof(buffer));
-    buffer[0] = 0x3;
+    buffer[0] = MESSAGE_TYPE_NDEF;
     buffer[1] = sizeof(encoded);
     memcpy(&buffer[2], encoded, sizeof(encoded));
     buffer[2+sizeof(encoded)] = 0xFE; // terminator
@@ -45,21 +44,6 @@ bool NtagSramAdapter::write(NdefMessage& message, unsigned int uiTimeout){
 //        if((i+1)%8==0)Serial.println();
 //    }
 }
-
-bool NtagSramAdapter::readerPresent(unsigned long timeout)
-{
-    unsigned long startTime=millis();
-    do
-    {
-        if(_ntag->isReaderPresent())
-        {
-            return true;
-        }
-    }while(millis()<startTime+timeout);
-
-    return false;
-}
-
 
 NfcTag NtagSramAdapter::read(unsigned int uiTimeOut){
     int messageStartIndex = 0;
@@ -84,86 +68,4 @@ NfcTag NtagSramAdapter::read(unsigned int uiTimeOut){
     return NfcTag(uid, UID_LENGTH, "NTAG", &buffer[messageStartIndex], messageLength);
 }
 
-bool NtagSramAdapter::waitUntilRfDone(unsigned int uiTimeOut)
-{
-    if(uiTimeOut>0)
-    {
-        unsigned long ulStartTime=millis();
-        while(millis() < ulStartTime+uiTimeOut)
-        {
-            if(!(_ntag->isRfBusy()))
-            {
-                return true;
-            }
-        }
-    }
-    return !(_ntag->isRfBusy());
-}
-
-bool NtagSramAdapter::rfBusy(){
-    return _ntag->isRfBusy();
-}
-
-
-// Decode the NDEF data length from the Mifare TLV
-// Leading null TLVs (0x0) are skipped
-// Assuming T & L of TLV will be in the first block
-// messageLength and messageStartIndex written to the parameters
-// success or failure status is returned
-//
-// { 0x3, LENGTH }
-bool NtagSramAdapter::decodeTlv(byte *data, int &messageLength, int &messageStartIndex)
-{
-    int i = getNdefStartIndex(data);
-
-    if (i < 0 || data[i] != 0x3)
-    {
-        Serial.println(F("Error. Can't decode message length."));
-        return false;
-    }
-    else
-    {
-        messageLength = data[i+1];
-        messageStartIndex = i + 2;
-    }
-
-    return true;
-}
-
-// skip null tlvs (0x0) before the real message
-// technically unlimited null tlvs, but we assume
-// T & L of TLV in the first block we read
-int NtagSramAdapter::getNdefStartIndex(byte *data)
-{
-
-    for (int i = 0; i < 16; i++)
-    {
-        if (data[i] == 0x0)
-        {
-            // do nothing, skip
-        }
-        else if (data[i] == 0x3)
-        {
-            return i;
-        }
-        else
-        {
-            Serial.print("Unknown TLV ");Serial.println(data[i], HEX);
-            return -2;
-        }
-    }
-
-    return -1;
-}
-
-byte NtagSramAdapter::getUidLength()
-{
-    return UID_LENGTH;
-}
-
-bool NtagSramAdapter::getUid(byte *uidin, unsigned int uidLength)
-{
-    memcpy(uidin, uid, UID_LENGTH < uidLength ? UID_LENGTH : uidLength);
-    return true;
-}
 

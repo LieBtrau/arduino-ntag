@@ -24,12 +24,15 @@ public:
     void detectI2cDevices();//Comes in handy when you accidentally changed the I²C address of the NTAG.
     bool begin();
     bool getUid(byte *uid, unsigned int uidLength);
+    bool getCapabilityContainer(byte* container);
     byte getUidLength();
     bool isRfBusy();
     bool isReaderPresent();
     bool setSramMirrorRf(bool bEnable, byte mirrorBaseBlockNr);
     bool setFd_ReaderHandshake();
+    //Address=address of the byte, not address of the 16byte block
     bool readEeprom(word address, byte* pdata, byte length);//starts at address 0
+    //Address=address of the byte, not address of the 16byte block
     bool writeEeprom(word address, byte* pdata, byte length);//starts at address 0
     bool readSram(word address, byte* pdata, byte length);//starts at address 0
     bool writeSram(word address, byte* pdata, byte length);//starts at address 0
@@ -47,10 +50,12 @@ private:
     static const byte UID_LENGTH=7;
     static const byte DEFAULT_I2C_ADDRESS=0x55;
     static const byte NTAG_BLOCK_SIZE=16;
-    static const word EEPROM_BASE_ADDR=0x1<<4;
-    static const word SRAM_BASE_ADDR=0xF8<<4;
-    bool write(BLOCK_TYPE bt, word address, byte* pdata, byte length);
-    bool read(BLOCK_TYPE bt, word address, byte* pdata,  byte length);
+    static const word EEPROM_BASE_ADDR=(0x1<<4);
+    static const word SRAM_BASE_ADDR=(0xF8<<4);
+    //Address=address of the byte, not address of the 16byte block
+    bool write(BLOCK_TYPE bt, word byteAddress, byte* pdata, byte length);
+    //Address=address of the byte, not address of the 16byte block
+    bool read(BLOCK_TYPE bt, word byteAddress, byte* pdata,  byte length);
     bool readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte data_size);
     bool writeBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data);
     bool writeBlockAddress(BLOCK_TYPE dt, byte addr);
