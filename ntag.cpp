@@ -7,7 +7,6 @@ HardWire HWire(1, I2C_REMAP);// | I2C_BUS_RESET); // I2c1
 #else
 #define HWire Wire
 #endif
-#include <stdio.h>
 
 
 Ntag::Ntag(DEVICE_TYPE dt, byte fd_pin, byte vout_pin, byte i2c_address):
@@ -189,8 +188,12 @@ bool Ntag::write(BLOCK_TYPE bt, word byteAddress, byte* pdata, byte length)
         {
             return false;
         }
-        writeLength=min(NTAG_BLOCK_SIZE - (byteAddress % NTAG_BLOCK_SIZE), length);
-        memcpy(readbuffer + (byteAddress % NTAG_BLOCK_SIZE), pdata, writeLength);
+        writeLength=NTAG_BLOCK_SIZE - (byteAddress % NTAG_BLOCK_SIZE);
+        if(writeLength<length)
+        {
+            writeLength=length;
+        }
+        memcpy((void*)(readbuffer + (byteAddress % NTAG_BLOCK_SIZE)), pdata, writeLength);
         if(!writeBlock(bt, blockNr, readbuffer))
         {
             return false;
@@ -225,7 +228,11 @@ bool Ntag::read(BLOCK_TYPE bt, word byteAddress, byte* pdata,  byte length)
     byte readLength;
     byte* wptr=pdata;
 
-    readLength=min(NTAG_BLOCK_SIZE, (byteAddress % NTAG_BLOCK_SIZE) + length);
+    readLength=(byteAddress % NTAG_BLOCK_SIZE) + length;
+    if(readLength<NTAG_BLOCK_SIZE)
+    {
+        readLength=NTAG_BLOCK_SIZE;
+    }
     if(!readBlock(bt, byteAddress/NTAG_BLOCK_SIZE, readbuffer, readLength))
     {
         return false;
@@ -253,7 +260,6 @@ bool Ntag::readBlock(BLOCK_TYPE bt, byte memBlockAddress, byte *p_data, byte dat
     if(!end_transmission()){
         return false;
     }
-    HWire.beginTransmission(_i2c_address);
     if(HWire.requestFrom(_i2c_address,data_size)!=data_size){
         return false;
     }
@@ -308,7 +314,6 @@ bool Ntag::readRegister(REGISTER_NR regAddr, byte& value)
     if(!end_transmission()){
         return false;
     }
-    HWire.beginTransmission(_i2c_address);
     if(HWire.requestFrom(_i2c_address,(byte)1)!=1){
         return false;
     }

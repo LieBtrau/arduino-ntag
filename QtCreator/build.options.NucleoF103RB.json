@@ -1,0 +1,10 @@
+{
+  "builtInLibrariesFolders": "/home/ctack/Programs/arduino-1.8.5/libraries",
+  "customBuildProperties": "build.warn_data_percentage=75,runtime.tools.arm-none-eabi-gcc.path=/home/ctack/.arduino15/packages/STM32/tools/arm-none-eabi-gcc/6-2017-q2-update,runtime.tools.STM32Tools.path=/home/ctack/.arduino15/packages/STM32/tools/STM32Tools/1.1.0,runtime.tools.CMSIS.path=/home/ctack/.arduino15/packages/STM32/tools/CMSIS/5.3.0",
+  "fqbn": "STM32:stm32:Nucleo_64:pnum=NUCLEO_F103RB,upload_method=MassStorage,xserial=generic,usb=none,opt=ogstd",
+  "hardwareFolders": "/home/ctack/Programs/arduino-1.8.5/hardware,/home/ctack/.arduino15/packages",
+  "otherLibrariesFolders": "/home/ctack/Arduino/libraries",
+  "runtime.ide.version": "10805",
+  "sketchLocation": "/home/ctack/git/arduino-ntag/examples/CleanTag/CleanTag.ino",
+  "toolsFolders": "/home/ctack/Programs/arduino-1.8.5/tools-builder,/home/ctack/Programs/arduino-1.8.5/hardware/tools/avr,/home/ctack/.arduino15/packages"
+}
