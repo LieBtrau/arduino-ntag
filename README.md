@@ -2,6 +2,11 @@
 Arduino library to interface through I²C with the NXP NTAG (NT3H1101 and NT3H1201).  These are fully ISO/IEC 14443 A and NFC Forum Type 2 Tag compliant.
 
 # Hardware
+
+## Compatibility
+
+Attention: The herein used NDEF-library (which I didn't write) currently eats up too much stack space for arduinos with 8bit AVR MCU and is therefore not usable.
+
 ## Tag
 Altium Designer has been used to create a tag PCB with a [Class 6 type antenna](https://nxp.box.com/s/5wycjhfaglzkf77ggwtl).  
 * [Schematic](https://drive.google.com/open?id=0B5_mAlpV8IjvOGVYaGR1VGNLQXM)
